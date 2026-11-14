@@ -1,59 +1,47 @@
 # Roadmap
 
-This document separates the initial 0.1 release scope from ideas that still need implementation and review. Dates and ordering may change as the project develops.
+The 0.2 implementation adds environment separation, a configurable playground and reproducible settings. Release packaging and npm registry publication remain pending. This list distinguishes the current release scope from possible later work.
 
-## v0.1 — shipped in this repository
+## v0.2 — implementation scope
 
-- [x] Dependency-free standalone `index.html` that runs offline when opened directly.
-- [x] Classic script build (`dist/koi-pond.iife.js`) with global `KoiPond` and automatic `<koi-pond>` registration.
-- [x] ESM build (`dist/koi-pond.js`) and TypeScript declarations (`types/index.d.ts`).
-- [x] Interactive midnight, rain and dusk environments; feeding, ripples, pause/reset and PNG export.
-- [x] Responsive demo controls and copyable embed snippet.
-- [x] MIT license and source, API, integration and contribution documentation.
-- [x] Experimental Windows T3 adapter isolated under `integrations/t3/`.
+- Four canonical procedural environments: Zen Garden, Moonlight, Autumn and Sakura Spring.
+- Separate fish behavior, environment painting, configuration and browser lifecycle modules.
+- Normalized settings, versioned JSON serialization, validation and seeded randomization.
+- Controller methods for reading/replacing settings, resetting to defaults and randomizing.
+- Playground controls, copyable configuration/install instructions and seeded share links.
+- Plain HTML, React/Next.js lifecycle and decorative portfolio background examples.
+- Classic and ESM distribution paths with no runtime dependencies; standalone HTML remains usable offline.
 
-The npm package is not published, and hosted demo deployment or release assets are not part of this repository's current state.
+The npm registry package is not published. A GitHub-source installation command is documented for the `v0.2.0` tag to be created when shipping. A hosted deployment URL is not part of these docs.
 
-## Planned, prioritized
+## Future work
 
-### 1. More environments and weather
+### Custom palette and editor
 
-Add a small number of distinct, coherent presets and weather effects without obscuring the koi or making the scene noisy.
+Consider an optional palette API and a compact editor for user-selected colors.
 
-**Acceptance:** presets are selectable through the public API and demo; switching does not reset fish or food; defaults remain visually legible; tests cover option validation and state continuity.
+**Acceptance:** palette values are validated, labels remain accessible, serialized configurations round-trip, and no external assets are required.
 
-### 2. Fish species and behaviors
+### More fish varieties and behavior
 
-Explore configurable markings, sizes and movement patterns while retaining the recognizable ASCII pond style.
+Explore additional koi markings, varieties or movement patterns if they add clear visual variety while keeping the koi readable.
 
-**Acceptance:** new behavior is opt-in or backward-compatible with existing defaults; deterministic simulation checks cover new rules; interaction remains usable by pointer and keyboard.
+**Acceptance:** additions stay reproducible with seeded settings and do not reset unrelated state when settings change.
 
-### 3. Custom palette and editor
+### Rendering performance
 
-Consider a documented palette API and a compact way to preview color choices.
+Consider worker rendering or other acceleration only if profiling shows the current canvas path misses practical performance targets.
 
-**Acceptance:** palette inputs are validated, accessible controls have text labels, and custom values do not require external assets or network access.
+**Acceptance:** a measured workload demonstrates a useful improvement; resize, reduced motion and lifecycle cleanup continue to work.
 
-### 4. Rendering performance options
+### npm publication and release automation
 
-Investigate worker or WebGL rendering only if profiling shows the current canvas renderer cannot meet practical needs.
+Publish `@dhruvil-codes/koi-pond` to the npm registry and automate reproducible release artifacts when release setup is ready.
 
-**Acceptance:** a measured workload demonstrates a meaningful improvement; the existing canvas path remains supported; the added path handles resize, reduced motion and cleanup correctly.
+**Acceptance:** a clean checkout builds and packages the committed outputs, package contents are reviewed, and version/install instructions match the published release.
 
-### 5. Framework wrappers
+### Additional host integrations
 
-Consider thin wrappers for frameworks where lifecycle or typing friction is demonstrated by real use.
+Consider other integrations based on concrete demand and available verification environments. The T3 adapter remains experimental meanwhile.
 
-**Acceptance:** wrappers stay optional, reuse the core implementation, document cleanup, and do not add framework dependencies to the standalone build.
-
-### 6. npm and release automation
-
-Publish `@dhruvil-codes/koi-pond` and automate reproducible package and release artifacts when release setup is ready.
-
-**Acceptance:** a clean checkout builds and packages the same committed distributables; package contents are reviewed; version and install instructions are verified before publication.
-
-### 7. App integrations
-
-Evaluate additional host-app integrations based on concrete demand and available verification environments. T3 support remains experimental meanwhile.
-
-**Acceptance:** each integration has an isolated implementation, clear tested version/platform scope, safe install and removal instructions, and no proprietary archives or machine-specific data in Git.
+**Acceptance:** each integration has an isolated implementation, clear platform/version scope, cleanup instructions and no proprietary archives or machine-specific files in Git.

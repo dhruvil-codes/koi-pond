@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict'
 import { configurePond, createPond, advance, feed, resizePond, renderPond } from '../src/core.js'
 
-const fast = createPond(120, 64, 1.6), slow = createPond(120, 64, 1.6)
+const fast = createPond(120, 64, 1.6, { fishCount: 30, fishSize: 1.8 }), slow = createPond(120, 64, 1.6, { fishCount: 30, fishSize: 1.8 })
 for (let i = 0; i < 600; i++) advance(fast, 1 / 60)
 for (let i = 0; i < 300; i++) advance(slow, 1 / 30)
 const refreshError = fast.fish.map((f, i) => Math.hypot(f.x - slow.fish[i].x, (f.y - slow.fish[i].y) * fast.aspect))
 assert(Math.max(...refreshError) < .04, 'Swimming must not change noticeably between 30Hz and 60Hz')
 
-const slowSpeed = createPond(120, 64, 1.6, { speed: .25 }), fastSpeed = createPond(120, 64, 1.6, { speed: 2.5 })
+const slowSpeed = createPond(120, 64, 1.6, { speed: .1 }), fastSpeed = createPond(120, 64, 1.6, { speed: 3 })
 for (let i = 0; i < 240; i++) { advance(slowSpeed, 1 / 60); advance(fastSpeed, 1 / 60) }
 assert(fastSpeed.fish[0].currentSpeed > slowSpeed.fish[0].currentSpeed * 4, 'Speed option steers swim velocity over time')
 configurePond(slowSpeed, { paused: true })
@@ -24,7 +24,7 @@ for (let frame = 0; frame < 3600; frame++) {
   const previous = pond.fish.map(f => f.turnVelocity)
   advance(pond, 1 / 60)
   for (let i = 0; i < pond.fish.length; i++) {
-    const f = pond.fish[i], spacing = 25 * f.scale * pond.columns / 112 / (f.spine.length - 1)
+    const f = pond.fish[i], spacing = 25 * f.scale * pond.options.fishSize * pond.columns / 112 / (f.spine.length - 1)
     maximumAcceleration = Math.max(maximumAcceleration, Math.abs(f.turnVelocity - previous[i]) * 60)
     assert(Number.isFinite(f.x + f.y + f.angle))
     assert(f.x >= 0 && f.x < pond.columns && f.y >= 0 && f.y < pond.rows)

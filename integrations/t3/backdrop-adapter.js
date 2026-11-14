@@ -69,25 +69,27 @@ canvas.setAttribute('aria-hidden', 'true');
 const ctx = canvas.getContext('2d', { alpha: false });
 const background = document.createElement('canvas');
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
-let pond = createPond(100, 40, 1.6), cellX = 6.5, cellY = 10.4, width = 0, height = 0;
+let pond = createPond(100, 40, 1.6, { environment: 'moonlight' }), cellX = 6.5, cellY = 10.4, width = 0, height = 0;
 let active = false, raf = 0, previous = 0;
 
 function paint() {
   if (!active || !ctx) return;
   const frame = renderPond(pond);
-  ctx.drawImage(background, 0, 0, width, height);
+  const nativePalette = frame.palette;
+  ctx.fillStyle = nativePalette[0]; ctx.fillRect(0, 0, width, height);
   for (let y = 0; y < frame.rows; y++) for (let x = 0; x < frame.columns; x++) {
     const i = y * frame.columns + x;
-    if (frame.chars[i] === 32) continue;
-    ctx.fillStyle = PALETTE[frame.colors[i]];
+    if (frame.chars[i] === 32 && !frame.coverage[i]) continue;
+    ctx.fillStyle = nativePalette[frame.colors[i]];
     // Fractional cell material creates connected koi bodies with subtle ASCII ink.
     if (frame.coverage[i]) {
       ctx.globalAlpha = frame.coverage[i] / 255;
-      ctx.fillRect(x * cellX + .1, y * cellY + .1, cellX - .2, cellY - .2);
+      const inset = frame.colors[i] >= 91 && frame.colors[i] <= 106 && frame.chars[i] === 32 ? 0 : .1;
+      ctx.fillRect(x * cellX + inset, y * cellY + inset, cellX - inset * 2, cellY - inset * 2);
       ctx.globalAlpha = 1;
     }
-    if (frame.coverage[i] > 128) ctx.fillStyle = frame.colors[i] >= 59 ? 'rgba(74,27,48,.3)' : frame.colors[i] >= 45 ? 'rgba(5,22,12,.4)' : 'rgba(55,47,35,.28)';
-    ctx.fillText(String.fromCharCode(frame.chars[i]), (x + .5) * cellX, (y + .5) * cellY);
+    if (frame.coverage[i] > 128) ctx.fillStyle = frame.colors[i] >= 91 ? 'rgba(0,0,0,.16)' : frame.colors[i] >= 83 ? 'rgba(12,35,44,.3)' : frame.colors[i] >= 59 ? 'rgba(74,27,48,.3)' : frame.colors[i] >= 45 ? 'rgba(5,22,12,.4)' : 'rgba(55,47,35,.28)';
+    if (frame.chars[i] !== 32) ctx.fillText(String.fromCharCode(frame.chars[i]), (x + .5) * cellX, (y + .5) * cellY);
   }
 }
 function size() {

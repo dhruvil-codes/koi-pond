@@ -1,25 +1,43 @@
 # Koi Pond
 
-A small, dependency-free interactive ASCII koi pond for a page, prototype or app. Open the standalone `index.html` offline, or embed the browser build as a custom element. It uses canvas and character art; it makes no network requests and loads no external fonts, images or runtime packages.
+A dependency-free ASCII koi pond with four procedural environments. Use the standalone playground, embed the classic browser build, or mount a canvas from an application. The library makes no network requests and uses no remote images or runtime dependencies.
 
-The default scene has four adult koi, three young koi, lily pads and a lotus. Hover or drag to stir the water, then click or tap to feed. Use the keyboard when the pond has focus: arrow keys move the cursor, Enter feeds, Space pauses and R resets.
+## Try the playground
 
-## Try it
+Visit the [live playground](https://dhruvil-codes.github.io/koi-pond/) to customize and share a pond.
 
-Download or clone the repository and open `index.html` in a modern browser. It works directly from disk.
+Open `index.html` directly in a modern browser. The committed page and classic build work offline. The playground lets you switch between Zen, Moonlight, Autumn and Sakura, tune the pond, reset or randomize settings, and copy a reproducible configuration or share link.
+
+To serve it locally instead, run `npm start`. This starts a development server; it does not publish or deploy the site.
+
+## Install from GitHub
+
+The npm registry package has not been published. Install the versioned source package with npm:
 
 ```sh
-git clone https://github.com/dhruvil-codes/koi-pond.git
-cd koi-pond
+npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.2.0
 ```
 
-The demo includes Midnight, Rain and Dusk environments, speed and fish-count controls, plant toggles, pause/reset, PNG export and an embed snippet that follows your settings. To serve the demo locally, explicitly run:
+The installed package name is `@dhruvil-codes/koi-pond`. The classic browser files are also committed in `dist/` for a direct download or local embed.
 
-```sh
-npm start
+## Embed in HTML
+
+Load the classic build and add a pond element. Give it a height in your layout:
+
+```html
+<script src="./dist/koi-pond.iife.js"></script>
+<koi-pond environment="zen" fish-count="12" style="display:block;height:480px"></koi-pond>
 ```
 
-This starts a local development server; it does not deploy the site. To regenerate the browser builds or run the project checks, install Node.js 22 or newer and run:
+The browser build registers `<koi-pond>` automatically. See [API](docs/API.md) for settings and methods, [Integrations](docs/INTEGRATIONS.md) for React, Next.js and background examples, and [Architecture](docs/ARCHITECTURE.md) for the source map.
+
+## Configuration and sharing
+
+The public `serializeConfig(options)` function returns versioned JSON with normalized settings. The playground's share URL stores that JSON in the `#pond=` hash, so opening the link restores the settings and seed. Loading a shared pond starts a fresh simulation; the link does not store a screenshot or motion timeline.
+
+## Development
+
+Use Node.js 22 or newer to rebuild or run project checks:
 
 ```sh
 npm install
@@ -27,26 +45,7 @@ npm run build
 npm test
 ```
 
-There are no runtime dependencies. The package name `@dhruvil-codes/koi-pond` is planned, but has not been published to npm. For now, clone or download the repository and use its committed files.
-
-## Embed
-
-Include the classic build and add the element where you want the pond. Give its host a size:
-
-```html
-<script src="./dist/koi-pond.iife.js"></script>
-
-<koi-pond
-  environment="midnight"
-  speed="1.35"
-  fish-count="7"
-  style="display:block; height:480px"
-></koi-pond>
-```
-
-The browser build registers `<koi-pond>` automatically. See [API](docs/API.md) for attributes and controller methods, [Integrations](docs/INTEGRATIONS.md) for framework examples, [Architecture](docs/ARCHITECTURE.md) for the project map, and [Roadmap](docs/ROADMAP.md) for planned work.
-
-The pond pauses offscreen and when its tab is hidden. Reduced motion starts it paused, with Play available. There are no global page styles, so multiple ponds and existing apps can coexist. The optional, version-specific T3 adapter is documented separately and remains experimental.
+There are no runtime dependencies. The optional T3 adapter remains an isolated experiment for the inspected Windows app version; it is not part of the pond runtime.
 
 ## License
 

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portfolio with a koi pond background</title>
+<style>
+  :root { color-scheme: dark; font: 16px/1.6 system-ui, sans-serif; background: #071512; color: #f1eee5; }
+  body { min-height: 100vh; margin: 0; }
+  .pond-background { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  .pond-background canvas { display: block; width: 100%; height: 100%; }
+  main { position: relative; z-index: 1; box-sizing: border-box; width: min(48rem, 100%); min-height: 100vh; padding: clamp(2rem, 8vw, 7rem); background: rgb(5 16 13 / 84%); }
+  h1 { max-width: 12ch; font-size: clamp(2.5rem, 8vw, 5rem); line-height: 1; }
+</style>
+<div class="pond-background" aria-hidden="true">
+  <canvas id="pond-background"></canvas>
+</div>
+<main>
+  <p>Portfolio · Selected work</p>
+  <h1>Made with patience.</h1>
+  <p>A sample content surface above a quiet, animated pond background.</p>
+</main>
+<script src="../dist/koi-pond.iife.js"></script>
+<script>
+  KoiPond.createKoiPond(document.querySelector('#pond-background'), {
+    environment: 'zen',
+    interactive: false,
+  });
+</script>
+</html>

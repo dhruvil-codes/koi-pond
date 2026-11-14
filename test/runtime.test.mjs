@@ -18,7 +18,7 @@ function browser({ reduced = false } = {}) {
   doc.defaultView = win
   const canvas = () => {
     const node = new EventTarget(), attributes = new Map([['role', 'presentation']])
-    const ctx = { fillRect() {}, fillText() {}, setTransform(...args) { this.transform = args } }
+    const ctx = { rectCount: 0, fillRect() { this.rectCount++ }, fillText() {}, setTransform(...args) { this.transform = args } }
     Object.assign(node, {
       ownerDocument: doc, style: { touchAction: 'auto' }, ctx, bounds: { left: 0, top: 0, width: 720, height: 480 },
       getContext: () => ctx, getBoundingClientRect() { return this.bounds },
@@ -100,4 +100,28 @@ test('reduced motion, hidden windows and offscreen ponds stop their clocks and r
   b.media.matches = true; b.media.dispatchEvent(new Event('change'))
   assert(pond.getState().paused); assert.equal(b.frames.size, 0)
   pond.destroy()
+})
+
+test('full configurations, density budgets and stationary frames remain independent and predictable', () => {
+  const b = browser(), canvas = b.canvas(), pond = createKoiPond(canvas)
+  const initialRects = canvas.ctx.rectCount, initialFont = parseFloat(canvas.ctx.font.split(' ')[1])
+  pond.pause()
+  assert.equal(canvas.ctx.rectCount, initialRects, 'Pausing an unchanged frame does not repaint cached scenery')
+  const snapshot = pond.getConfig()
+  assert(Object.isFrozen(snapshot.varieties))
+  pond.setConfig({ version: 1, options: { environment: 'autumn', seed: 42, fishCount: 30, fishSize: 1.8, paused: true } })
+  assert.equal(pond.getConfig().fishCount, 30)
+  assert(parseFloat(canvas.ctx.font.split(' ')[1]) > initialFont, 'High load uses larger cells to stay within the rendering budget')
+  const original = pond.serialize()
+  assert.throws(() => pond.setConfig('{'))
+  assert.equal(pond.serialize(), original)
+  pond.randomize(123)
+  assert(pond.getConfig().paused, 'Randomizing keeps an intentionally paused preview still')
+  pond.resetToDefaults()
+  assert.equal(pond.getConfig().fishCount, 12)
+  pond.destroy()
+  const reduced = browser({ reduced: true }), calm = createKoiPond(reduced.canvas())
+  calm.resetToDefaults()
+  assert(calm.getConfig().paused, 'Default reset respects reduced motion')
+  calm.destroy()
 })

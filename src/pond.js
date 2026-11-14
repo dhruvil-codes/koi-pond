@@ -1,4 +1,5 @@
 import { createPond, configurePond, validateOptions, advance, renderPond, resizePond, feed, disturb } from './core.js'
+import { DEFAULT_OPTIONS, parseConfig, serializeConfig, randomizeConfig } from './config.js'
 
 const instances = new WeakMap()
 const bounded = n => Math.max(0, Math.min(1, n))
@@ -15,13 +16,16 @@ export function createKoiPond(canvas, options = {}) {
   let pond = createPond(120, 44, 1.6, { ...settings, paused: settings.paused || media.matches })
   let destroyed = false, raf = 0, previous = 0, inView = true, width = 0, height = 0, cellX = 3, cellY = 4.8
   let down, keyboardCursor, lastPoint, lastStir = -Infinity, palette, fromPalette, paletteTime = 0
+  let paintedFrame, paintedPalette, paintedCursor = false, frameBudget = 1000 / 60, slowFrames = 0
+  let columnEdges, rowEdges
   const saved = Object.fromEntries(['tabindex', 'role', 'aria-label'].map(key => [key, canvas.getAttribute(key)]))
   const originalTouchAction = canvas.style.touchAction
   const originalCursor = canvas.style.cursor
   canvas.style.touchAction = 'pan-y'
 
   const alive = () => { if (destroyed) throw new Error('This pond has been destroyed') }
-  const state = () => Object.freeze({ ...pond.options, paused: pond.paused, foodCount: pond.food.length, eaten: pond.eaten, destroyed })
+  const config = () => Object.freeze({ ...pond.options, varieties: Object.freeze([...pond.options.varieties]), paused: pond.paused })
+  const state = () => Object.freeze({ ...config(), foodCount: pond.food.length, eaten: pond.eaten, destroyed })
   const announce = () => {
     canvas.tabIndex = pond.options.interactive ? 0 : -1
     canvas.style.cursor = pond.options.interactive ? 'crosshair' : 'default'
@@ -31,7 +35,7 @@ export function createKoiPond(canvas, options = {}) {
   }
   const mixPalette = (next, now) => {
     if (!fromPalette || pond.paused || media.matches) { fromPalette = undefined; return next }
-    const t = bounded((now - paletteTime) / 420), ease = 1 - (1 - t) ** 3
+    const t = bounded((now - paletteTime) / 280), ease = 1 - (1 - t) ** 3
     if (t === 1) { fromPalette = undefined; return next }
     return next.map((color, i) => {
       const old = fromPalette[i] || color
@@ -42,19 +46,25 @@ export function createKoiPond(canvas, options = {}) {
     if (destroyed || !width || !height) return
     const frame = renderPond(pond)
     palette = mixPalette(frame.palette, now)
-    ctx.fillStyle = palette[0]; ctx.fillRect(0, 0, width, height)
+    const full = !paintedFrame || paintedFrame.columns !== frame.columns || paintedFrame.rows !== frame.rows || !paintedPalette || palette.some((color, i) => color !== paintedPalette[i]) || keyboardCursor || paintedCursor
+    if (full) { ctx.fillStyle = palette[0]; ctx.fillRect(0, 0, width, height) }
     for (let y = 0; y < frame.rows; y++) for (let x = 0; x < frame.columns; x++) {
       const i = y * frame.columns + x
-      if (frame.chars[i] === 32) continue
+      if (!full && frame.chars[i] === paintedFrame.chars[i] && frame.colors[i] === paintedFrame.colors[i] && frame.coverage[i] === paintedFrame.coverage[i]) continue
+      const left = columnEdges[x], top = rowEdges[y], cellWidth = columnEdges[x + 1] - left, cellHeight = rowEdges[y + 1] - top
+      if (!full) { ctx.fillStyle = palette[0]; ctx.fillRect(left, top, cellWidth, cellHeight) }
+      if (frame.chars[i] === 32 && !frame.coverage[i]) continue
       ctx.fillStyle = palette[frame.colors[i]]
       if (frame.coverage[i]) {
         ctx.globalAlpha = frame.coverage[i] / 255
-        ctx.fillRect(x * cellX + .1, y * cellY + .1, cellX - .2, cellY - .2)
+        const inset = frame.colors[i] >= 91 && frame.colors[i] <= 106 && frame.chars[i] === 32 ? 0 : .1
+        ctx.fillRect(left + inset, top + inset, cellWidth - inset * 2, cellHeight - inset * 2)
         ctx.globalAlpha = 1
       }
-      if (frame.coverage[i] > 128) ctx.fillStyle = frame.colors[i] >= 59 ? 'rgba(74,27,48,.3)' : frame.colors[i] >= 45 ? 'rgba(5,22,12,.4)' : 'rgba(55,47,35,.28)'
-      ctx.fillText(String.fromCharCode(frame.chars[i]), (x + .5) * cellX, (y + .5) * cellY)
+      if (frame.coverage[i] > 128) ctx.fillStyle = frame.colors[i] >= 91 ? 'rgba(0,0,0,.16)' : frame.colors[i] >= 83 ? 'rgba(12,35,44,.3)' : frame.colors[i] >= 59 ? 'rgba(74,27,48,.3)' : frame.colors[i] >= 45 ? 'rgba(5,22,12,.4)' : 'rgba(55,47,35,.28)'
+      if (frame.chars[i] !== 32) ctx.fillText(String.fromCharCode(frame.chars[i]), (x + .5) * cellX, (y + .5) * cellY)
     }
+    paintedFrame = frame; paintedPalette = palette; paintedCursor = Boolean(keyboardCursor)
     if (keyboardCursor && pond.options.interactive) {
       ctx.fillStyle = palette[9]
       ctx.font = `500 ${Math.max(10, cellY)}px monospace`
@@ -68,11 +78,15 @@ export function createKoiPond(canvas, options = {}) {
     raf = 0
     if (!canRun()) return
     if (!previous) previous = now
-    if (now - previous >= 1000 / 60 - 1) {
+    if (now - previous >= frameBudget - 1) {
+      const started = win.performance.now()
       const eaten = pond.eaten, foodCount = pond.food.length
       advance(pond, Math.min((now - previous) / 1000, .1)); previous = now
       paint(now)
       if (pond.eaten !== eaten || pond.food.length !== foodCount) announce()
+      const elapsed = win.performance.now() - started
+      slowFrames = elapsed > 18 ? slowFrames + 1 : Math.max(0, slowFrames - 1)
+      if (slowFrames > 12) frameBudget = 1000 / 30
     }
     raf = win.requestAnimationFrame(tick)
   }
@@ -82,15 +96,20 @@ export function createKoiPond(canvas, options = {}) {
     const rect = canvas.getBoundingClientRect(), dpr = Math.min(win.devicePixelRatio || 1, 2)
     width = rect.width; height = rect.height
     if (!width || !height) { stop(); return }
-    const fine = pond.options.detail === 'fine', maximum = fine ? 480 : 300
+    const fine = pond.options.detail === 'fine'
+    const workload = Math.max(1, pond.options.fishCount / 14) * Math.max(1, pond.options.fishSize) ** 2
+    const maximum = Math.max(fine ? 180 : 140, Math.floor((fine ? 480 : 300) / Math.sqrt(workload)))
     cellX = Math.max(fine ? 2.5 : 4, Math.min(fine ? 4 : 6, width / (fine ? 280 : 180)), width / maximum)
     cellY = cellX * 1.6
     canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr)
+    paintedFrame = undefined; frameBudget = 1000 / 60; slowFrames = 0
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.font = `500 ${cellY * .78}px ui-monospace, Consolas, monospace`
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
     pond.aspect = cellY / cellX
     resizePond(pond, Math.max(20, Math.floor(width / cellX)), Math.max(12, Math.floor(height / cellY)))
+    columnEdges = Float64Array.from({ length: pond.columns + 1 }, (_, x) => Math.round(x * cellX * dpr) / dpr)
+    rowEdges = Float64Array.from({ length: pond.rows + 1 }, (_, y) => Math.round(y * cellY * dpr) / dpr)
     paint(); resume()
   }
   const coordinates = (x, y) => {
@@ -169,9 +188,14 @@ export function createKoiPond(canvas, options = {}) {
 
   const controller = {
     getState: state,
+    getConfig: config,
+    setConfig(value) { return controller.setOptions(typeof value === 'string' ? parseConfig(value) : value && typeof value === 'object' && 'version' in value ? parseConfig(JSON.stringify(value)) : validateOptions(value)) },
+    resetToDefaults() { controller.setOptions({ ...DEFAULT_OPTIONS, paused: media.matches }); return controller.reset() },
+    randomize(seed) { controller.setOptions({ ...randomizeConfig(seed), paused: pond.paused, interactive: pond.options.interactive }); controller.reset(); return config() },
+    serialize() { return serializeConfig(config()) },
     setOptions(partial) {
       alive()
-      const next = validateOptions(partial, pond.options), environmentChanged = next.environment !== pond.options.environment, detailChanged = next.detail !== pond.options.detail
+      const next = validateOptions(partial, pond.options), environmentChanged = next.environment !== pond.options.environment, detailChanged = next.detail !== pond.options.detail || next.fishCount !== pond.options.fishCount || next.fishSize !== pond.options.fishSize
       if (environmentChanged) { fromPalette = palette?.slice(); paletteTime = win.performance.now() }
       configurePond(pond, partial)
       down = undefined

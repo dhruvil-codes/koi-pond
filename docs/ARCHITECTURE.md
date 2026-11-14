@@ -1,48 +1,56 @@
 # Project map
 
-The simulation, browser lifecycle and demo are separate. A host app can use the same pond without adopting the demo controls.
+The pond simulation, environment artwork, browser lifecycle and playground are separate layers. Hosts can use the same simulation without adopting the playground.
 
 ```mermaid
 flowchart LR
-  Presets[environments.js: colors and preset metadata] --> Core[core.js: fish, water and character frame]
-  Core --> Canvas[pond.js: canvas controller and input]
-  Canvas --> Element[element.js: custom element]
-  Canvas --> Host[Your app's canvas]
-  Element --> Demo[Standalone demo and HTML embeds]
-  Core --> T3[Experimental T3 adapter]
+  Config[src/config.js: defaults, validation, JSON and seeded settings] --> Core[src/core.js: orchestration and frame composition]
+  Fish[src/fish.js: koi model, steering and painting] --> Core
+  Environment[src/environment.js: procedural scene layers]
+  Environments[src/environments.js: preset metadata] --> Environment
+  Palette[src/palette.js: fish and scenery colors] --> Core
+  Math[src/math.js: shared deterministic helpers] --> Fish
+  Math --> Environment
+  Environment --> Core
+  Core --> Pond[src/pond.js: canvas lifecycle and input]
+  Pond --> Element[src/element.js: custom element]
+  Pond --> Host[Application canvas]
+  Pond --> Playground[demo/ controls and generated outputs]
 ```
 
 | Location | Responsibility |
 | --- | --- |
-| `src/core.js` | Deterministic fish steering, articulated spines, food, bounded ripples and procedural ASCII artwork. No DOM. |
-| `src/environments.js` | Frozen preset metadata and palettes. Midnight is the original artwork. |
-| `src/pond.js` | Canvas sizing, drawing, pointer/keyboard input, lifecycle, accessibility and public controller. |
+| `src/config.js` | Defaults, atomic validation, cloned normalized settings, versioned JSON serialization/parsing and seeded randomization. |
+| `src/fish.js` | Fish creation, articulated steering, advancing, resizing and fish-only painting. |
+| `src/environment.js` | Procedural water, lighting, rocks, vegetation, blossoms, lilies, lotuses, particles and atmosphere. It does not own fish behavior or mutate fish. |
+| `src/environments.js` | Canonical preset metadata for Zen Garden, Moonlight, Autumn and Sakura Spring. |
+| `src/palette.js` | Stable fish and plant colors; the environment module appends its own scenery ramps. |
+| `src/math.js` | Shared clamp, wrap, hash and ramp helpers. |
+| `src/core.js` | Simulation orchestration and ordered back-environment, fish and foreground composition. No DOM. |
+| `src/pond.js` | Canvas sizing, painting, pointer and keyboard input, visibility handling, lifecycle and public controller. |
 | `src/element.js` | Custom-element attributes, local shadow styles, mount/disconnect and error events. |
 | `types/index.d.ts` | Public TypeScript contracts and custom-element/event types. |
-| `demo/` | Controls and layout for the standalone playground. |
-| `scripts/build.mjs` | Deterministic, dependency-free ESM/classic bundling and inline demo generation. |
-| `dist/` and `index.html` | Committed output so a download works immediately. Rebuild rather than edit these. |
-| `examples/` | A minimal working drop-in HTML example. |
-| `test/` | Simulation, artwork, lifecycle and build checks. Generated browser fixture is ignored by Git. |
-| `integrations/t3/` | Optional Windows adapter, process/version guards and reversible archive patching. |
-| `.local/` | Local-only prior experiments and backups; ignored by Git and excluded from packages. |
+| `demo/` | Playground controls, live configuration, import/share links and output snippets. |
+| `examples/` | Direct HTML embed, decorative background and React lifecycle examples. |
+| `scripts/build.mjs` | Dependency-free ESM/classic bundling and inline standalone playground generation. |
+| `dist/` and `index.html` | Committed browser outputs for immediate use; rebuild from source instead of hand-editing. |
+| `test/` | Simulation, environment, artwork, configuration, lifecycle and build checks. |
+| `integrations/t3/` | Isolated experimental Windows adapter and its version guards. |
 
 ## State and interaction
 
-Every controller owns one simulation, one animation clock and its observers. A canvas cannot have two live controllers. Removing a custom element destroys its controller; reconnecting starts a new one. Manually managed canvases must call `destroy()` when their host removes them.
+Each controller owns one pond, animation clock and set of observers. A canvas cannot have two live controllers. Removing a custom element destroys its controller; reconnecting starts a new one. A manually managed canvas must call `destroy()` when its host removes it.
 
-`setOptions()` validates the entire change before applying it. Environment and speed changes preserve positions, food and time. Population changes keep surviving fish. Reset restores the scene with the current options. Public snapshots are frozen and contain no mutable simulation objects.
+Options are normalized and validated as one change before they are applied. Environment-only changes preserve fish object references, positions, spine points, speeds and kinds, along with food and simulation time. Population changes retain survivors. The explicit `reset()` method restarts motion with current settings; `resetToDefaults()` restores settings. Seeded settings and initial layouts are repeatable.
 
-Pointer movement produces throttled, velocity-sensitive ripples. A tap feeds only after pointer-up confirms that it was not a drag. Movement stays marked as a drag even if it returns to its starting point. Touch cancellation and secondary pointers cannot feed. Keyboard controls act only while the canvas has focus.
+Pointer movement creates ripples, while a tap feeds after pointer-up confirms it was not a drag. Keyboard controls act only while the pond has focus. The renderer pauses when hidden or offscreen and respects reduced-motion preference. Fine and balanced detail settings bound the character grid; actual rendering performance still depends on hardware and scene settings.
 
-The renderer uses elapsed time and small simulation substeps. Hidden/offscreen ponds stop scheduling frames and reset their timestamp before resuming. Fine detail caps the character grid at 480 columns, balanced at 300, and DPR at two. These bounds keep work predictable; performance still depends on hardware, population and weather.
+Static water, rocks and vegetation are cached separately from fish. Dirty canvas cells redraw only when their character, material or coverage changes. Water material edges align to device pixels, while fish keep their fine character texture. Higher counts and sizes lower the grid ceiling; consistently slow frames can reduce the refresh rate to 30 Hz while elapsed-time steering preserves swimming speed.
 
 ## Extending it
 
-For a new environment, add metadata and a palette in `src/environments.js`, add any time-derived ambient artwork in `src/core.js`, and update validation, types, demo controls and tests. Keep the default Midnight palette intact. Avoid randomness inside rendering so a frame is reproducible.
+The four selectable presets are `zen`, `moonlight`, `autumn` and `sakura`. Legacy configuration ids `midnight`, `rain` and `dusk` are accepted for compatibility, but are not additional preset choices. Environment artwork is procedural and deterministic for a given normalized configuration and simulation state.
 
-For a new behavior, change the core and add a deterministic simulation check. For a new host integration, reuse the canvas controller or core; isolate host-specific code and document its verified platform/version. Do not inject global styles or copy the physics into each adapter.
+For a new environment, add metadata and palette treatment in the environment modules, validate any new setting, update the playground and public types, and cover state continuity. Keep environment rendering from mutating fish or simulation state. For a new fish behavior, update the fish and core layers. Host integrations should reuse the canvas controller, keep their own lifecycle cleanup, and state which platforms have been checked.
 
-Run the checks in [CONTRIBUTING](../CONTRIBUTING.md), rebuild, then commit the source and generated files together. The build test and CI catch stale distributables.
-
-The [Roadmap](ROADMAP.md) tracks future work; the [release spec](SPEC.md) defines what is implemented now.
+Run the checks in [Contributing](../CONTRIBUTING.md), then rebuild source and committed outputs together. The [API](API.md) documents public behavior; [SPEC](SPEC.md) records the 0.2 scope and [Roadmap](ROADMAP.md) tracks future work.

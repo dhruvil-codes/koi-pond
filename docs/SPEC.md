@@ -1,32 +1,70 @@
-# Koi Pond 0.1
+# Koi Pond 0.2
 
-An open-source, dependency-free interactive ASCII pond, usable by opening one HTML file or embedding one script and one custom element. The existing midnight artwork remains the default: four adult koi, three young koi, seven lily pads and a layered lotus.
+Koi Pond is a dependency-free interactive ASCII pond. It can run from the committed standalone HTML page, as a classic browser custom element, or through an ES module canvas controller. It makes no runtime network requests and uses no remote images or fonts.
 
-## This release
+## 0.2 scope
 
-- Framework-independent canvas controller and `<koi-pond>` custom element. Classic script and ES module builds, TypeScript declarations, MIT license. No network requests, tracking, images, fonts, runtime packages, or build dependencies.
-- Smooth food attraction, velocity-aware pointer ripples, click/tap feeding, bounded drag stirring, keyboard feeding, pause/reset, PNG snapshot. Scrolling and text selection outside the pond remain normal. Touch scrolling must not feed accidentally; only primary pointer taps feed.
-- Presets: `midnight` (original black still water), `rain` (cool teal water and gentle rainfall rings), `dusk` (warm dark water and drifting petals). Switching preserves the fish and food. A short palette fade is decorative; the selected control updates immediately.
-- Options: `environment` default `midnight`; `speed` default `1.35`, range 0.25–2.5; `fishCount` default 7, integer range 1–16; `lilies` and `lotus` default true; `detail` `fine` (default) or `balanced`; `paused` default false; `interactive` default true. Reject invalid public options without partially applying them.
-- Live demo: pond first, quiet controls for environment, speed, fish count, plants, pause/reset, snapshot and copyable embed. Responsive layout and a proper accessible help/status region. No marketing dashboard.
-- Reduced motion pauses initially, with explicit Play available. Pause offscreen/hidden. Handle resizes without resetting, cap DPR at 2 and rendering at 480 columns. Destroy releases every listener, observer and animation frame; multiple ponds stay independent.
-- Tests for simulation, artwork, option validation, API lifecycle, multi-instance behavior, custom-element reconnect and build/package contents. Browser fixture verifies actual controls, drag/touch filtering and accessibility. CI runs the Node checks and builds.
-- Public source tree: `src/`, `types/`, `demo/`, `examples/`, `scripts/`, `test/`, `docs/`, `dist/`, `.github/`. Generated distributable JS and standalone `index.html` are committed for immediate use.
-- T3 integration source is isolated under `integrations/t3/`, experimental and pinned to the inspected app version. Proprietary ASAR archives, backups, machine paths and user attachments never enter Git. Do not apply, stage or restart T3.
-- Push the initial complete release to `https://github.com/dhruvil-codes/koi-pond.git`, branch `main`; do not force-push. npm publication and hosted-site deployment are future release work.
+- Four canonical procedural environments: `zen` (Zen Garden), `moonlight` (Moonlight), `autumn` (Autumn) and `sakura` (Sakura Spring). The legacy ids `midnight`, `rain` and `dusk` remain accepted by configuration but are not shown as additional choices.
+- A layered renderer keeps fish and environment responsibilities separate. The renderer paints the environment back layer, fish, then environment foreground. Environment changes do not mutate or reset fish, positions, spine points, speeds, kinds, food or simulation time.
+- A responsive playground provides environment selection, live pond settings, Reset to defaults and Randomize controls, copied install/configuration outputs and a share link.
+- Classic browser and ESM builds, TypeScript declarations, examples and standalone `index.html` are committed. The classic browser file and standalone page work offline. ESM imports defer browser APIs so server-side module loading is safe.
+- The optional T3 adapter remains an isolated experiment pinned to the inspected Windows version 0.1.9. It is not applied by ordinary project checks.
 
-## Public API
+## Settings
 
-`createKoiPond(canvas, options)` returns a controller with `play()`, `pause()`, `toggle()`, `reset()`, `setOptions(partial)`, `feed(x,y)`, `ripple(x,y,strength?)`, `getState()`, `exportPNG()`, and `destroy()`. Feed/ripple coordinates are normalized to 0–1. `getState()` returns a read-only snapshot of options plus `paused`, `foodCount`, `eaten` and `destroyed`. User-visible changes emit a bubbling, composed `pondchange` event from the canvas.
+`DEFAULT_OPTIONS` and `VARIETIES` are exported. The normalized settings are:
 
-`registerKoiPond(tagName = 'koi-pond')` is idempotent. Importing the browser build auto-registers the default element. Attributes use kebab case (`fish-count`) and booleans use `true`/`false` values. The element exposes `.pond` after connecting, disconnects cleanly and can reconnect. Source module imports must be safe in Node without DOM globals.
+| Key | Default | Accepted values |
+| --- | --- | --- |
+| `environment` | `zen` | `zen`, `moonlight`, `autumn`, `sakura`; accepted legacy aliases: `midnight`, `rain`, `dusk` |
+| `fishCount` | `12` | integer `1`–`30` |
+| `speed` | `1.35` | finite number `0.1`–`3` |
+| `fishSize` | `1` | finite number `0.5`–`1.8` |
+| `varieties` | `kohaku`, `sanke`, `ogon`, `shusui` | nonempty unique array containing only those ids |
+| `behavior` | `wander` | `wander`, `school`, `circle` |
+| `waterColor` | `null` | `null` for preset water, or `#rrggbb` |
+| `lilyDensity` | `0.7` | finite number `0`–`1` |
+| `lotusCount` | `2` | integer `0`–`6` |
+| `particleDensity` | `0.45` | finite number `0`–`1` |
+| `rippleIntensity` | `1` | finite number `0`–`2` |
+| `timeOfDay` | `auto` | `auto` or finite hour `0`–`24` |
+| `seed` | `2026` | integer `0`–`4294967295` |
+| `lilies` | `true` | boolean; v0.1 compatibility |
+| `lotus` | `true` | boolean; v0.1 compatibility |
+| `detail` | `fine` | `fine`, `balanced` |
+| `paused` | `false` | boolean |
+| `interactive` | `true` | boolean |
 
-Core signatures remain compatible: `createPond(columns, rows, aspect, options?)`, `advance`, `renderPond`, `resizePond`, `feed`, `disturb`. Add `configurePond(pond, partial)` and `validateOptions(partial, current?)`; store normalized settings in `pond.options`. `renderPond` returns the existing character/color/coverage arrays plus a `palette` string array for the selected environment. `ENVIRONMENTS` is exported metadata with `id`, `label`, `description`.
+Unknown options and invalid values are rejected atomically. Normalized arrays are cloned and public configuration reads do not expose mutable model state.
 
-## Design
+## Configuration and controller
 
-The pond is the focal point. Black water, ivory koi, coral markings, amber young koi, moss-green pads and blush lotus. Quiet system sans controls and monospace embed code; no external fonts. A compact toolbar wraps into clear groups on mobile. Interaction feedback starts immediately, with subtle 140ms button presses. No sound by default. Every shipped feature must be distinguishable from roadmap ideas.
+The config module exports `validateOptions(partial, current?)`, `serializeConfig(options)`, `parseConfig(json)`, and `randomizeConfig(seed?)`. Serialization is JSON in the envelope `{ "version": 1, "options": { ... } }`. Parsing also accepts a plain options object encoded as JSON. Seeded randomization returns the same normalized settings for the same seed.
 
-## Done
+The controller adds `getConfig()` for cloned normalized settings, `setConfig(stringOrObject)`, `resetToDefaults()` and `randomize(seed?)`, while preserving the existing controller API. `reset()` restarts motion while retaining current settings. `resetToDefaults()` explicitly restores defaults. `setOptions(partial)` remains an atomic partial update.
 
-Opening `index.html` works offline. `npm install` needs no dependencies. `npm run build`, `npm test` and `npm pack --dry-run` succeed. Drop-in examples use actual generated files. A clean clone can reproduce the output. The GitHub repository contains only intended source, documentation, examples and small distributables, with no local artifacts or secrets.
+The full normalized configuration, including the seed, is serialized into `#pond=encodeURIComponent(serializeConfig(config))`. Opening a share link restores configuration before interaction and starts a fresh simulation. Links do not store screenshots or promise to restore a motion timeline.
+
+Environment-only changes preserve current fish object references and their positions, spines, speeds and varieties, as well as food and simulation time. Count changes preserve surviving fish. Changes to size, varieties or behavior update fish in place and do not reset world time. An explicit seed change may reseed fish layouts for reproducibility.
+
+## Browser and lifecycle behavior
+
+`createKoiPond(canvas, options)` manages a single canvas. `createPond(columns, rows, aspect, options?)`, `configurePond`, `advance`, `resizePond`, `feed`, `disturb`, `renderPond`, `validateOptions`, `ENVIRONMENTS` and `PALETTE` remain core exports. The controller supports `play`, `pause`, `toggle`, `reset`, `setOptions`, `getState`, `feed`, `ripple`, `exportPNG` and `destroy` alongside the new configuration methods.
+
+The pond pauses offscreen and while the document is hidden. Reduced-motion preference starts it paused, with Play available. Destroy releases listeners, observers and animation frames; custom elements can disconnect and reconnect. Pointer taps feed only after pointer-up confirms the action was not a drag. Keyboard interaction is available while the pond has focus. Standalone demo controls remain separate from the library.
+
+## Installation status
+
+The npm registry package has not been published. The documented source install is `npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.2.0`; create the `v0.2.0` tag when shipping. The import name after installing the repository package is `@dhruvil-codes/koi-pond`. Do not describe it as a registry-published package.
+
+## Release checks
+
+- Validate option ranges, unknown keys, atomicity and configuration roundtrips.
+- Verify environment changes preserve fish, food and time; verify fish count/size/variety/behavior effects.
+- Verify distinct procedural scenes, density extremes and seeded repeatability.
+- Exercise multiple controllers, custom-element reconnect, input filtering and disposal.
+- Check playground controls and that generated configuration/install/share output matches the active normalized settings.
+- Review all four scenes at desktop and mobile sizes; check responsive controls, accessibility labels, touch targets, reduced motion and offscreen pause.
+- Build from a clean checkout and inspect package contents. Keep proprietary app archives, personal files and reference imagery out of Git.
+
+The T3 integration remains an isolated experiment at version 0.1.9 and is not applied as part of release checks.

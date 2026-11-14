@@ -1,24 +1,4 @@
-/*! Koi Pond v0.1.0 | Copyright 2026 Dhruvil | MIT License */
-const ENVIRONMENTS = Object.freeze([
-  { id: 'midnight', label: 'Midnight', description: 'Black still water' },
-  { id: 'rain', label: 'Rain', description: 'Cool teal water with gentle rainfall rings' },
-  { id: 'dusk', label: 'Dusk', description: 'Warm dark water with drifting petals' },
-].map(environment => Object.freeze(environment)))
-
-const WATER = {
-  midnight: null,
-  rain: ['#031011', '#07191a', '#0b2222', '#12302d', '#29413b', '#52675b', '#eee8d8', '#99592a', '#c98135', '#dfaa60', '#62685b', '#787a6c', '#b7b29f', '#b45d42', '#3b3e37'],
-  dusk: ['#100908', '#1b100d', '#291713', '#382019', '#56382b', '#80604a', '#eee8d8', '#99592a', '#c98135', '#dfaa60', '#62685b', '#787a6c', '#b7b29f', '#b45d42', '#3b3e37'],
-}
-
-function paletteForEnvironment(id, basePalette) {
-  if (id === 'midnight') return basePalette.slice()
-  const water = WATER[id]
-  if (!water) throw new RangeError(`Unknown environment: ${id}`)
-  return [...water, ...basePalette.slice(water.length)]
-}
-
-
+/*! Koi Pond v0.2.0 | Copyright 2026 Dhruvil | MIT License */
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n))
 const wrap = a => Math.atan2(Math.sin(a), Math.cos(a))
 const hash = (x, y) => ((Math.imul(x + 31, 374761393) ^ Math.imul(y + 19, 668265263)) >>> 0) / 4294967296
@@ -27,220 +7,116 @@ const ramp = (a, b, count) => Array.from({ length: count }, (_, i) => '#' + [0, 
   return Math.round(p + (q - p) * i / (count - 1)).toString(16).padStart(2, '0')
 }).join(''))
 
+
 const PALETTE = ['#000000', '#0b0d0c', '#161b17', '#242923', '#55574e', '#8d8c7d', '#eee8d8', '#99592a', '#c98135', '#dfaa60', '#62685b', '#787a6c', '#b7b29f', '#b45d42', '#3b3e37',
   ...ramp('c0bfaa', 'fffbed', 8), ...ramp('b34334', 'f76d54', 8), ...ramp('a15d1e', 'f0af4c', 8), ...ramp('42453c', '88897a', 6),
   ...ramp('163528', '7c905b', 12), '#9aaea0', '#dce6cf',
-  ...ramp('713b52', 'f3c1cd', 12), ...ramp('dca7b1', 'fff0df', 6), ...ramp('8e5d28', 'f2cc73', 6)]
-const DENSITY = ':;t%SX8#@'
-const JOINTS = 22
-const DEFAULT_OPTIONS = Object.freeze({ environment: 'midnight', speed: 1.35, fishCount: 7, lilies: true, lotus: true, detail: 'fine', paused: false, interactive: true })
-const OPTION_KEYS = new Set(Object.keys(DEFAULT_OPTIONS))
+  ...ramp('713b52', 'f3c1cd', 12), ...ramp('dca7b1', 'fff0df', 6), ...ramp('8e5d28', 'f2cc73', 6), ...ramp('406b87', 'b9dfeb', 8)]
 
+const VARIETIES = Object.freeze(['kohaku', 'sanke', 'ogon', 'shusui'])
+const DEFAULT_OPTIONS = Object.freeze({ environment: 'zen', fishCount: 12, speed: 1.35, fishSize: 1, varieties: VARIETIES, behavior: 'wander', waterColor: null, lilyDensity: .7, lotusCount: 2, particleDensity: .45, rippleIntensity: 1, timeOfDay: 'auto', seed: 2026, lilies: true, lotus: true, detail: 'fine', paused: false, interactive: true })
+const optionKeys = new Set(Object.keys(DEFAULT_OPTIONS))
+const configEnvironments = ['zen', 'moonlight', 'autumn', 'sakura', 'midnight', 'rain', 'dusk']
 
 function validateOptions(partial = {}, current = DEFAULT_OPTIONS) {
   if (!partial || typeof partial !== 'object' || Array.isArray(partial)) throw new TypeError('Options must be an object')
   if (!current || typeof current !== 'object' || Array.isArray(current)) throw new TypeError('Current options must be an object')
-  for (const key of Object.keys(partial)) if (!OPTION_KEYS.has(key)) throw new TypeError(`Unknown option: ${key}`)
+  for (const key of Object.keys(current)) if (!optionKeys.has(key)) throw new TypeError(`Unknown option: ${key}`)
+  for (const key of Object.keys(partial)) if (!optionKeys.has(key)) throw new TypeError(`Unknown option: ${key}`)
   const next = { ...DEFAULT_OPTIONS, ...current, ...partial }
-  if (!ENVIRONMENTS.some(environment => environment.id === next.environment)) throw new RangeError('environment must be midnight, rain, or dusk')
-  if (typeof next.speed !== 'number' || !Number.isFinite(next.speed) || next.speed < .25 || next.speed > 2.5) throw new RangeError('speed must be a finite number from 0.25 to 2.5')
-  if (!Number.isInteger(next.fishCount) || next.fishCount < 1 || next.fishCount > 16) throw new RangeError('fishCount must be an integer from 1 to 16')
+  if (!configEnvironments.includes(next.environment)) throw new RangeError('Unknown environment')
+  const range = (key, low, high, integer = false) => {
+    if (!Number.isFinite(next[key]) || next[key] < low || next[key] > high || (integer && !Number.isInteger(next[key]))) throw new RangeError(`${key} must be ${integer ? 'an integer' : 'a finite number'} from ${low} to ${high}`)
+  }
+  range('fishCount', 1, 30, true); range('speed', .1, 3); range('fishSize', .5, 1.8)
+  range('lilyDensity', 0, 1); range('lotusCount', 0, 6, true); range('particleDensity', 0, 1); range('rippleIntensity', 0, 2); range('seed', 0, 4294967295, true)
+  if (!Array.isArray(next.varieties) || !next.varieties.length || next.varieties.some(id => !VARIETIES.includes(id)) || new Set(next.varieties).size !== next.varieties.length) throw new TypeError('Choose one or more unique fish varieties')
+  next.varieties = [...next.varieties]
+  if (!['wander', 'school', 'circle'].includes(next.behavior)) throw new RangeError('behavior must be wander, school, or circle')
+  if (next.waterColor !== null && (typeof next.waterColor !== 'string' || !/^#[\da-f]{6}$/i.test(next.waterColor))) throw new TypeError('waterColor must be null or a six-digit hex color')
+  if (next.waterColor) next.waterColor = next.waterColor.toLowerCase()
+  if (next.timeOfDay !== 'auto') range('timeOfDay', 0, 24)
   for (const key of ['lilies', 'lotus', 'paused', 'interactive']) if (typeof next[key] !== 'boolean') throw new TypeError(`${key} must be a boolean`)
-  if (next.detail !== 'fine' && next.detail !== 'balanced') throw new TypeError('detail must be fine or balanced')
+  if (!['fine', 'balanced'].includes(next.detail)) throw new RangeError('detail must be fine or balanced')
   return next
 }
-const DEWDROPS = [[-.31, -.24, .068], [.23, .39, .045]]
-// Normalized layouts keep the two loose clusters at the pond's edge on resize.
-const LILIES = [
-  [.81, .17, .049, -2.3, .84], [.895, .255, .035, 2.5, .92],
-  [.79, .345, .031, -.9, .88], [.93, .115, .022, .8, .8],
-  [.795, .74, .037, -2.7, .89], [.88, .805, .027, -1.2, .83],
-  [.735, .83, .023, .65, .91],
-]
 
-const FISH_LAYOUT = [
-  { x: .47, y: .24, angle: -.08, speed: 2.35, scale: .62, phase: .5, kind: 0, curve: .105 },
-  { x: .33, y: .43, angle: 3.04, speed: 2.8, scale: .92, phase: 2.5, kind: 1, curve: .017 },
-  { x: .29, y: .55, angle: -1.92, speed: 2.65, scale: .72, phase: 4.2, kind: 2, curve: -.065 },
-  { x: .11, y: .76, angle: 2.25, speed: 2.6, scale: .6, phase: 5.8, kind: 3, curve: -.035 },
-  { x: .59, y: .49, angle: -.32, speed: 3.4, scale: .3, phase: 1.2, kind: 2, curve: .026 },
-  { x: .68, y: .59, angle: -.52, speed: 3.6, scale: .25, phase: 1.7, kind: 3, curve: .07 },
-  { x: .54, y: .74, angle: -.18, speed: 3.3, scale: .32, phase: 3.8, kind: 0, curve: -.03 },
-]
+function serializeConfig(options = {}) {
+  return JSON.stringify({ version: 1, options: validateOptions(options) })
+}
 
-function createPond(columns = 120, rows = 44, aspect = 1.6, options = {}) {
-  const normalizedOptions = validateOptions(options)
-  const pond = { columns, rows, aspect, time: 0, paused: normalizedOptions.paused, options: normalizedOptions, eaten: 0, ripples: [], food: [], fish: [] }
-  while (pond.fish.length < normalizedOptions.fishCount) {
-    const f = makeFish(pond, pond.fish.length)
-    initializeFish(pond, f)
-    pond.fish.push(f)
+function parseConfig(input) {
+  if (typeof input !== 'string' || input.length > 10000) throw new TypeError('Configuration must be a JSON string under 10 KB')
+  let value
+  try { value = JSON.parse(input) } catch { throw new TypeError('Configuration is not valid JSON') }
+  if (value && typeof value === 'object' && 'version' in value) {
+    if (value.version !== 1 || Object.keys(value).some(key => !['version', 'options'].includes(key)) || !value.options) throw new RangeError('Unsupported configuration format')
+    value = value.options
   }
-  return pond
+  return validateOptions(value)
 }
 
-function makeFish(pond, index) {
-  if (index < FISH_LAYOUT.length) {
-    const seed = FISH_LAYOUT[index]
-    return { ...seed, x: seed.x * pond.columns, y: seed.y * pond.rows }
+function randomizeConfig(seed = Math.floor(Math.random() * 4294967296)) {
+  validateOptions({ seed })
+  let state = seed >>> 0
+  const next = () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296 }
+  const choose = values => values[Math.floor(next() * values.length)]
+  const round = n => Math.round(n * 100) / 100
+  const varieties = VARIETIES.filter(() => next() > .25)
+  return validateOptions({ environment: choose(configEnvironments.slice(0, 4)), fishCount: 6 + Math.floor(next() * 15), speed: round(.5 + next() * 1.4), fishSize: round(.75 + next() * .55), varieties: varieties.length ? varieties : ['kohaku'], behavior: choose(['wander', 'school', 'circle']), lilyDensity: round(.25 + next() * .65), lotusCount: 1 + Math.floor(next() * 4), particleDensity: round(.2 + next() * .6), rippleIntensity: round(.5 + next()), seed })
+}
+
+
+const ENVIRONMENTS = Object.freeze([
+  { id: 'zen', label: 'Zen Garden', description: 'Jade water, mossy granite and quiet pink blossoms' },
+  { id: 'moonlight', label: 'Moonlight', description: 'Blue water, broken moonlight and drifting fireflies' },
+  { id: 'autumn', label: 'Autumn', description: 'Charcoal water, amber light and falling maple leaves' },
+  { id: 'sakura', label: 'Sakura Spring', description: 'Violet water and a canopy of flowering cherry' },
+].map(envEntry => Object.freeze(envEntry)))
+
+const envSceneColors = {
+  zen: ['001e1c', '186e5c', '17282a', '8b9690', '273b17', '91a13c', '241f1b', '715343', '924455', 'ffbbcb', '933f19', 'f5a735', '195b50', '72b8a2', '3d501b', 'a7aa46'],
+  moonlight: ['001020', '0d4563', '172532', '7d8b9c', '243a28', '6d8648', '182331', '4c4c62', '753c68', 'f0a2ce', '79532e', 'd8ab69', '174a6c', 'e3f7f0', '2b4931', '81965a'],
+  autumn: ['151e20', '4b4b38', '292b2c', 'a29a7e', '424019', 'a8a446', '291c16', '7a4125', 'a3481d', 'ffb758', '9e2711', 'ff9d22', '68421f', 'fbc783', '564823', 'c4a34b'],
+  sakura: ['151d31', '55455f', '2c2c3a', 'a397b4', '303c28', '8a9b55', '282032', '75566c', 'a14f7e', 'ffc1d8', 'ad5373', 'f5aec9', '67405e', 'ffc4d5', '41432d', 'b1a168'],
+}
+
+function resolveEnvironment(id) {
+  return ({ midnight: 'moonlight', rain: 'zen', dusk: 'autumn' })[id] || id
+}
+
+const envMix = (envA, envB, envT) => '#' + [0, 2, 4].map(envChannel => Math.round(parseInt(envA.slice(envChannel, envChannel + 2), 16) * (1 - envT) + parseInt(envB.slice(envChannel, envChannel + 2), 16) * envT).toString(16).padStart(2, '0')).join('')
+
+function paletteForEnvironment(id, basePalette, options = {}) {
+  const envId = resolveEnvironment(id), envColors = envSceneColors[envId]
+  if (!envColors) throw new RangeError(`Unknown environment: ${id}`)
+  const envPalette = basePalette.slice(0, 91)
+  while (envPalette.length < 91) envPalette.push('#000000')
+  const envHour = options.timeOfDay === 'auto' || options.timeOfDay == null ? null : options.timeOfDay
+  const envDaylight = envHour === null ? 1 : .48 + .52 * Math.max(0, Math.sin((envHour - 6) / 12 * Math.PI))
+  const envWater = options.waterColor ? options.waterColor.slice(1) : envColors[0]
+  const envWaterLight = options.waterColor ? envMix(envWater, envColors[1], .45).slice(1) : envColors[1]
+  const envLight = envColor => envMix('030711', envColor.replace('#', ''), envDaylight)
+  const envWaterRamp = ramp(envWater, envWaterLight, 16).map(envLight)
+  envPalette[0] = envWaterRamp[0]
+  for (let envI = 1; envI < 15; envI++) envPalette[envI] = envWaterRamp[Math.min(15, envI + 1)]
+  envPalette.push(...envWaterRamp)
+  // Scenery has its own ramps, leaving every koi shade untouched.
+  for (const [envStart, envEnd, envCount] of [[2, 3, 12], [4, 5, 12], [6, 7, 8], [8, 9, 12], [10, 11, 12], [12, 13, 12], [14, 15, 10]]) {
+    envPalette.push(...ramp(envColors[envStart], envColors[envEnd], envCount).map(envLight))
   }
-  const n = index - 4
-  return {
-    x: pond.columns * (.18 + (n * .173) % .64), y: pond.rows * (.18 + (n * .287) % .64),
-    angle: -0.2 + n * 1.71, speed: 3.25 + n % 3 * .17, scale: [.3, .25, .32][n % 3],
-    phase: 1.1 + n * 1.39, kind: n % 4, curve: [-.03, .026, .07][n % 3],
+  envPalette.push(...ramp('59622b', 'fff6a1', 6).map(envLight))
+  if (envId !== 'zen' || envHour !== null) {
+    const envPlantTint = envId === 'moonlight' ? '23405a' : envId === 'autumn' ? '9a732d' : envId === 'sakura' ? '50526c' : '244237'
+    for (let envI = 45; envI <= 82; envI++) envPalette[envI] = envLight(envMix(envPalette[envI].slice(1), envPlantTint, envId === 'moonlight' ? .22 : .12))
   }
+  return envPalette
 }
 
-function initializeFish(pond, fish) {
-  fish.turnVelocity = 0
-  fish.currentSpeed = fish.speed * pond.columns / 100 * pond.options.speed
-  fish.swimPhase = fish.phase
-  fish.spine = [{ x: fish.x, y: fish.y }]
-  const gap = fishLength(pond, fish) / (JOINTS - 1)
-  for (let j = 1; j < JOINTS; j++) {
-    const previous = fish.spine[j - 1], a = fish.angle + Math.PI + fish.curve * j
-    fish.spine.push({ x: previous.x + Math.cos(a) * gap, y: previous.y + Math.sin(a) * gap / pond.aspect })
-  }
-}
 
-function configurePond(pond, partial) {
-  const options = validateOptions(partial, pond.options)
-  pond.options = options
-  pond.paused = options.paused
-  while (pond.fish.length > options.fishCount) pond.fish.pop()
-  while (pond.fish.length < options.fishCount) {
-    const fish = makeFish(pond, pond.fish.length)
-    initializeFish(pond, fish)
-    pond.fish.push(fish)
-  }
-  return options
-}
+const envDewdrops = [[-.31, -.24, .068], [.23, .39, .045]]
 
-const fishLength = (pond, fish) => 25 * fish.scale * pond.columns / 112
-
-function resizePond(pond, columns, rows) {
-  const sx = columns / pond.columns, sy = rows / pond.rows
-  for (const p of [...pond.fish, ...pond.ripples, ...pond.food]) { p.x *= sx; p.y *= sy }
-  for (const f of pond.fish) {
-    f.currentSpeed *= sx
-    for (const node of f.spine) { node.x *= sx; node.y *= sy }
-  }
-  pond.columns = columns; pond.rows = rows
-  for (const f of pond.fish) followSpine(pond, f)
-}
-
-function disturb(pond, x, y, strength = 1) {
-  pond.ripples.push({ x: clamp(x, 0, pond.columns - 1), y: clamp(y, 0, pond.rows - 1), age: 0, strength })
-  if (pond.ripples.length > 10) pond.ripples.shift()
-}
-
-function feed(pond, x, y) {
-  const margin = Math.min(3, pond.columns / 5, pond.rows / 5)
-  pond.food.push({ x: clamp(x, margin, pond.columns - margin), y: clamp(y, margin, pond.rows - margin), age: 0 })
-  if (pond.food.length > 8) pond.food.shift()
-  disturb(pond, x, y, 1)
-}
-
-function followSpine(pond, fish) {
-  const gap = fishLength(pond, fish) / (JOINTS - 1)
-  fish.spine[0].x = fish.x; fish.spine[0].y = fish.y
-  let backward = fish.angle + Math.PI
-  for (let i = 1; i < JOINTS; i++) {
-    const previous = fish.spine[i - 1], node = fish.spine[i]
-    const oldAngle = Math.atan2((node.y - previous.y) * pond.aspect, node.x - previous.x)
-    const angle = backward + clamp(wrap(oldAngle - backward), -.29, .29)
-    node.x = previous.x + Math.cos(angle) * gap
-    node.y = previous.y + Math.sin(angle) * gap / pond.aspect
-    backward = angle
-  }
-}
-
-function step(pond, dt) {
-  pond.time += dt
-  for (const r of pond.ripples) r.age += dt
-  for (const p of pond.food) p.age += dt
-  pond.ripples = pond.ripples.filter(r => r.age < 5)
-  pond.food = pond.food.filter(p => p.age < 18)
-  for (const fish of pond.fish) {
-    let target = { x: pond.columns * (.5 + .32 * Math.cos(pond.time * .055 + fish.phase)), y: pond.rows * (.5 + .3 * Math.sin(pond.time * .045 + fish.phase)) }
-    let nearest = Infinity, pellet
-    for (const p of pond.food) {
-      const d = Math.hypot(p.x - fish.x, (p.y - fish.y) * pond.aspect)
-      if (d < nearest) { nearest = d; target = p; pellet = p }
-    }
-    if (pellet && nearest < Math.max(.8, fishLength(pond, fish) * .075)) {
-      pond.food.splice(pond.food.indexOf(pellet), 1); pond.eaten++
-      disturb(pond, pellet.x, pellet.y, .3); pellet = undefined
-    }
-    let hx = target.x - fish.x, hy = (target.y - fish.y) * pond.aspect
-    const toward = Math.hypot(hx, hy) || 1
-    hx /= toward; hy /= toward
-    if (!pellet) {
-      const ax = (fish.x - pond.columns / 2) / (pond.columns * .2), ay = (fish.y - pond.rows / 2) / (pond.rows * .18)
-      const distance = Math.hypot(ax, ay) || .001
-      if (distance < 1.3) { const push = (1.3 - distance) * 1.5; hx += ax / distance * push; hy += ay / distance * push }
-    }
-    for (const other of pond.fish) if (other !== fish) {
-      const dx = fish.x - other.x, dy = (fish.y - other.y) * pond.aspect, d = Math.hypot(dx, dy)
-      const safe = (fishLength(pond, fish) + fishLength(pond, other)) * .25
-      if (d > .01 && d < safe) { const push = (1 - d / safe) * (pellet ? .35 : 1.1); hx += dx / d * push; hy += dy / d * push }
-    }
-    const edge = fishLength(pond, fish) * .7
-    if (fish.x < edge) hx += (edge - fish.x) / edge * 2.5
-    if (fish.x > pond.columns - edge) hx -= (fish.x - pond.columns + edge) / edge * 2.5
-    const edgeY = edge / pond.aspect
-    if (fish.y < edgeY) hy += (edgeY - fish.y) / edgeY * 2.5
-    if (fish.y > pond.rows - edgeY) hy -= (fish.y - pond.rows + edgeY) / edgeY * 2.5
-    const error = wrap(Math.atan2(hy, hx) - fish.angle)
-    const desiredTurn = clamp(error * 1.5, -.8, .8)
-    fish.turnVelocity += (desiredTurn - fish.turnVelocity) * (1 - Math.exp(-dt * 3.5))
-    fish.angle = wrap(fish.angle + fish.turnVelocity * dt)
-    const speedTarget = fish.speed * pond.columns / 100 * pond.options.speed * (pellet ? 1.55 : .88 + .08 * Math.sin(pond.time * .6 + fish.phase))
-    fish.currentSpeed += (speedTarget - fish.currentSpeed) * (1 - Math.exp(-dt * 1.8))
-    fish.x = clamp(fish.x + Math.cos(fish.angle) * fish.currentSpeed * dt, .5, pond.columns - .5)
-    fish.y = clamp(fish.y + Math.sin(fish.angle) * fish.currentSpeed * dt / pond.aspect, .5, pond.rows - .5)
-    fish.swimPhase += dt * (1.5 + fish.currentSpeed / pond.columns * 38)
-    followSpine(pond, fish)
-  }
-}
-
-function advance(pond, delta) {
-  if (pond.paused || pond.options?.paused) return
-  // Small fixed substeps keep steering and body following consistent at any refresh rate.
-  const duration = clamp(delta, 0, .15), count = Math.max(1, Math.ceil(duration * 90))
-  for (let i = 0; i < count; i++) step(pond, duration / count)
-}
-
-function animatedSpine(pond, fish) {
-  const length = fishLength(pond, fish)
-  return fish.spine.map((p, i, nodes) => {
-    const t = i / (JOINTS - 1), previous = nodes[Math.max(0, i - 1)], next = nodes[Math.min(JOINTS - 1, i + 1)]
-    const dx = previous.x - next.x, dy = (previous.y - next.y) * pond.aspect, d = Math.hypot(dx, dy) || 1
-    const wave = Math.sin(fish.swimPhase - t * 4.6) * length * .024 * t ** 1.8
-    return { x: p.x - dy / d * wave, y: p.y + dx / d * wave / pond.aspect }
-  })
-}
-
-function lilyPads(pond) {
-  return LILIES.map(([x, y, radius, rotation, flatten], index) => {
-    const phase = index * 2.39
-    let sway = Math.sin(pond.time * .24 + phase) * .018
-    for (const ripple of pond.ripples) {
-      const distance = Math.hypot(x * pond.columns - ripple.x, (y * pond.rows - ripple.y) * pond.aspect)
-      const arrival = distance / (pond.columns * .078), age = ripple.age - arrival
-      if (age > 0) sway += Math.sin(age * 7) * Math.exp(-age * 2.4) * ripple.strength * .065
-    }
-    const angle = rotation + sway
-    return {
-      x: (x + Math.sin(pond.time * .16 + phase) * .0012) * pond.columns,
-      y: y * pond.rows + Math.cos(pond.time * .19 + phase) * pond.columns * .0007 / pond.aspect,
-      radius: radius * pond.columns, cos: Math.cos(angle), sin: Math.sin(angle), flatten, phase,
-    }
-  })
-}
-
-function drawLilyPads(pond, pads, put, shadows = false) {
+function envDrawLilyPads(pond, pads, put, shadows = false) {
   const { columns, rows, aspect } = pond
   for (const pad of pads) {
     const r = pad.radius, cx = pad.x + (shadows ? r * .06 : 0), cy = pad.y + (shadows ? r * .11 / aspect : 0)
@@ -271,7 +147,7 @@ function drawLilyPads(pond, pads, put, shadows = false) {
           : branchVein ? ':' : growth > .55 ? ';' : '.'
         put(x, y, glyph, 45 + Math.floor(clamp(light, 0, 1) * 11), 246)
         if (r > 6) {
-          for (const [du, dv, size] of DEWDROPS) {
+          for (const [du, dv, size] of envDewdrops) {
             const distance = Math.hypot(u - du, v - dv)
             if (distance < size) put(x, y, distance < size * .35 ? '.' : 'o', distance < size * .35 ? 58 : 57, 215)
           }
@@ -281,9 +157,9 @@ function drawLilyPads(pond, pads, put, shadows = false) {
   }
 }
 
-function drawLotus(pond, put) {
+function envDrawLotus(pond, put, envFlower) {
   const { columns, rows, aspect, time } = pond
-  const r = columns * .038, cx = columns * (.832 + Math.sin(time * .16) * .001), cy = rows * .268 + Math.cos(time * .18) * r * .025 / aspect
+  const r = columns * envFlower[2], cx = columns * envFlower[0], cy = rows * envFlower[1]
   const left = Math.max(0, Math.floor(cx - r - 1)), right = Math.min(columns - 1, Math.ceil(cx + r + 1))
   const top = Math.max(0, Math.floor(cy - r / aspect - 1)), bottom = Math.min(rows - 1, Math.ceil(cy + r / aspect + 1))
   // Successive whorls overlap in painter's order: sepals, pink petals, ivory inner petals.
@@ -323,65 +199,393 @@ function drawLotus(pond, put) {
   }
 }
 
-function drawFishWake(pond, fish, put) {
+const envCache = new WeakMap()
+const envPadLayout = [
+  [.805, .16, .046, -2.3, .84], [.881, .255, .036, 2.5, .92], [.785, .337, .032, -.9, .88],
+  [.045, .885, .033, -.4, .86], [.16, .925, .034, -2.5, .86], [.092, .946, .025, .8, .82],
+  [.80, .733, .036, -2.7, .89], [.878, .805, .027, -1.2, .83], [.734, .821, .023, .65, .91],
+  [.925, .09, .021, .8, .8], [.829, .287, .027, -1.7, .83], [.125, .86, .028, 1.3, .91],
+  [.87, .185, .028, 1.4, .88], [.20, .953, .022, -2, .9], [.675, .07, .023, 2.5, .87],
+  [.93, .713, .024, .5, .9], [.72, .897, .025, 2, .86], [.064, .802, .025, 1, .85],
+]
+const envFlowerLayout = [[.829, .268, .036], [.12, .845, .035], [.89, .145, .029], [.767, .79, .03], [.195, .92, .027], [.69, .105, .027]]
+
+function envLine(pond, put, ax, ay, bx, by, width, family, glyph = ':') {
+  const dx = bx - ax, dy = (by - ay) * pond.aspect, distance = Math.hypot(dx, dy)
+  const steps = Math.max(1, Math.ceil(distance * 1.5))
+  for (let step = 0; step <= steps; step++) {
+    const t = step / steps, cx = ax + (bx - ax) * t, cy = ay + (by - ay) * t, r = Math.max(.4, width * (1 - t * .55))
+    for (let y = Math.floor(cy - r / pond.aspect); y <= Math.ceil(cy + r / pond.aspect); y++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
+      const nx = (x - cx) / r, ny = (y - cy) * pond.aspect / r
+      if (nx * nx + ny * ny > 1.1) continue
+      put(x, y, glyph, family + Math.floor(clamp(.45 - nx * .2 - ny * .25 + hash(x, y) * .15, 0, .99) * 7), 242)
+    }
+  }
+}
+
+function envRock(pond, put, nx, ny, rx, ry, seed) {
+  const cx = nx * pond.columns, cy = ny * pond.rows, w = rx * pond.columns, h = ry * pond.rows
+  for (let y = Math.max(0, Math.floor(cy - h)); y <= Math.min(pond.rows - 1, Math.ceil(cy + h)); y++) for (let x = Math.max(0, Math.floor(cx - w)); x <= Math.min(pond.columns - 1, Math.ceil(cx + w)); x++) {
+    const u = (x - cx) / w, v = (y - cy) / h, angle = Math.atan2(v, u)
+    const edge = 1 + .075 * Math.sin(angle * 5 + seed) + .035 * Math.cos(angle * 9 - seed)
+    const radius = Math.hypot(u, v)
+    if (radius > edge) continue
+    const grain = hash(x + seed, y), facet = Math.floor((u + Math.sin(v * 4 + seed) * .13) * 9)
+    const crack = Math.abs(Math.sin(u * 14 + Math.sin(v * 5 + seed) * .7)) < .105
+    let light = .6 - u * .23 - v * .33 - radius * .14 + (grain - .5) * .2 + (facet % 3) * .045
+    if (crack) light -= .3
+    if (radius > edge - .09) light -= .15
+    const moss = v < -.18 && grain + Math.sin(u * 15 + seed) * .17 > .47 + (v + .65) * .4
+    const color = moss ? 119 + Math.floor(clamp(.48 - v * .33 - u * .15 + grain * .16, 0, .99) * 11) : 107 + Math.floor(clamp(light, 0, .99) * 11)
+    put(x, y, crack ? '|' : moss ? grain > .75 ? '*' : ':' : grain > .82 ? ';' : grain > .53 ? ':' : '.', color, 250)
+  }
+}
+
+function envFoliage(pond, put, cx, cy, radius, maple, seed) {
+  const r = Math.max(1.3, radius), aspect = pond.aspect
+  for (let y = Math.floor(cy - r / aspect); y <= Math.ceil(cy + r / aspect); y++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
+    const u = (x - cx) / r, v = (y - cy) * aspect / r, a = Math.atan2(v, u) + seed
+    const boundary = maple ? .52 + .46 * Math.max(0, Math.cos(5 * a)) : .66 + .31 * Math.cos(a * 5)
+    const d = Math.hypot(u, v)
+    if (d > boundary) continue
+    const light = clamp(.5 - u * .19 - v * .24 + hash(x + seed * 100, y) * .22, 0, .99)
+    put(x, y, d < .2 ? '*' : maple ? Math.abs(Math.sin(a * 5)) < .2 ? '/' : ':' : '.', (maple ? 151 : 139) + Math.floor(light * 11), 248)
+    if (!maple && d < .2) put(x, y, '*', 190, 255)
+  }
+}
+
+function envCanopy(pond, put, scene, seed, fine) {
+  const branches = [
+    [-.015, .185, .08, .13, .19, .025, .315, .005, 1.7],
+    [-.03, .02, .085, .08, .20, .115, .34, .18, 1.35],
+    [.005, .12, .016, .19, .029, .25, .092, .285, .9],
+    [.075, .115, .098, .05, .125, .025, .13, -.025, .8],
+    [.155, .064, .18, .025, .198, .015, .215, -.02, .7],
+    [.14, .10, .185, .145, .21, .145, .25, .13, .6],
+  ]
+  for (let b = 0; b < branches.length; b++) {
+    const branch = branches[b], points = [], segments = 28
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments, q = 1 - t
+      points.push([(q ** 3 * branch[0] + 3 * q * q * t * branch[2] + 3 * q * t * t * branch[4] + t ** 3 * branch[6]) * pond.columns, (q ** 3 * branch[1] + 3 * q * q * t * branch[3] + 3 * q * t * t * branch[5] + t ** 3 * branch[7]) * pond.rows])
+    }
+    for (let i = 1; i < points.length; i++) envLine(pond, put, ...points[i - 1], ...points[i], branch[8] * pond.columns / 280 * (1 - i / points.length * .73), 131)
+    const spacing = scene === 'sakura' ? 2 : scene === 'autumn' ? 3 : 4
+    for (let i = 3; i < points.length; i += fine ? spacing : spacing + 1) {
+      const p = points[i], side = i % 2 ? 1 : -1, jitter = hash(i + seed, b)
+      const tx = p[0] + (jitter - .5) * pond.columns * .018, ty = p[1] + side * pond.rows * (.014 + jitter * .019)
+      envLine(pond, put, p[0], p[1], tx, ty, .55, 131)
+      envFoliage(pond, put, tx, ty, pond.columns * (scene === 'autumn' ? .013 : .0085 + jitter * .003), scene === 'autumn', b + i * .17)
+      if (scene === 'sakura' || jitter > .45) envFoliage(pond, put, tx + pond.columns * .007, ty - pond.rows * .009, pond.columns * .0055, scene === 'autumn', b + i)
+    }
+  }
+}
+
+function envReeds(pond, put, scene, seed) {
+  for (let bank = 0; bank < 3; bank++) for (let i = 0; i < (bank === 1 ? 18 : 11); i++) {
+    const n = hash(i + seed, bank + 199), cx = (bank === 0 ? .987 - n * .045 : bank === 1 ? .925 + n * .08 : n * .018) * pond.columns
+    const cy = (bank === 0 ? .86 + n * .1 : bank === 1 ? 1.03 : .39 + n * .05) * pond.rows
+    const length = pond.rows * (.055 + hash(i + seed, bank + 33) * .10), lean = (hash(i, bank + seed) - .5) * pond.columns * .047
+    for (let step = 0; step <= length; step += .5) {
+      const t = step / length, x = cx + lean * t * t, y = cy - step
+      put(x, y, Math.abs(lean) < 1 ? '|' : lean > 0 ? '/' : '\\', 175 + Math.floor(clamp(.25 + t * .55 + n * .2, 0, .99) * 9), 222)
+      if (i % 4 === 0 && t > .76) put(x + .8, y, ':', scene === 'autumn' ? 160 : 181, 225)
+    }
+  }
+}
+
+function envBuild(pond, key) {
+  const { columns, rows, aspect } = pond, options = pond.options || {}, scene = resolveEnvironment(options.environment || 'zen')
+  const seed = (options.seed ?? 2026) >>> 0, fine = options.detail !== 'balanced', total = columns * rows
+  const back = { chars: new Uint8Array(total).fill(32), colors: new Uint8Array(total), coverage: new Uint8Array(total) }
+  const front = { chars: new Uint8Array(total).fill(32), colors: new Uint8Array(total), coverage: new Uint8Array(total) }
+  const paint = layer => (x, y, glyph, color, coverage = 0) => {
+    x = Math.round(x); y = Math.round(y)
+    if (x >= 0 && x < columns && y >= 0 && y < rows) { const i = y * columns + x; layer.chars[i] = glyph.charCodeAt(0); layer.colors[i] = color; layer.coverage[i] = coverage }
+  }
+  const backPut = paint(back), frontPut = paint(front), shimmer = []
+  const xWaves = Array.from({ length: columns }, (_, x) => [Math.sin(x * .045 + seed % 17), Math.sin(x * .113), Math.cos(x * .023)])
+  for (let y = 0; y < rows; y++) {
+    const bend = Math.sin(y * .07 + seed % 11) * 1.9, sy = Math.sin(y * .11), cy = Math.cos(y * .11)
+    for (let x = 0; x < columns; x++) {
+      const waves = xWaves[x], coarse = waves[0] * cy + waves[2] * sy + Math.sin(y * .15 + waves[1] * 1.3)
+      const grain = hash(Math.floor(x / 3) + seed, Math.floor(y / 2)), light = clamp(.36 + coarse * .15 + grain * .13, .05, .95)
+      // Quiet solid material carries the water's depth; actual ink follows a few caustic contours.
+      backPut(x, y, ' ', 91 + Math.floor(light * 14), 90 + Math.round(light * 105))
+      const contour = Math.sin(x * .055 + y * .105 + bend + waves[0] * 1.8)
+      if (contour > .957 && grain > .24) backPut(x, y, hash(x, y) > .65 ? '-' : '.', 98 + Math.floor(light * 6), 150)
+      if (fine && x % 3 === 0 && y % 2 === 0 && grain > .65) shimmer.push([x, y, x * .027 + y * .09 + grain * 5])
+    }
+  }
+  // Submerged bank shadows sit beneath the rock geometry and remain out of the fish layer.
+  for (const [cx, cy, rx, ry] of [[-.01, .44, .10, .10], [.96, 1.01, .21, .19]]) {
+    for (let y = Math.max(0, Math.floor((cy - ry) * rows)); y < Math.min(rows, Math.ceil((cy + ry) * rows)); y++) for (let x = Math.max(0, Math.floor((cx - rx) * columns)); x < Math.min(columns, Math.ceil((cx + rx) * columns)); x++) {
+      const d = Math.hypot((x / columns - cx) / rx, (y / rows - cy) / ry)
+      if (d < 1) backPut(x, y, ' ', 91, Math.round((1 - d) * 170))
+    }
+  }
+  const rocks = [[-.014, .428, .069, .058], [.044, .357, .034, .033], [.008, .383, .038, .041], [.855, 1.018, .085, .079], [.932, .973, .075, .075], [.991, .90, .056, .083], [.895, .94, .041, .035]]
+  for (let i = 0; i < rocks.length; i++) envRock(pond, frontPut, ...rocks[i], i * 13 + seed % 47)
+  envReeds(pond, frontPut, scene, seed)
+  envCanopy(pond, frontPut, scene, seed, fine)
+  const density = options.lilies === false ? 0 : options.lilyDensity ?? .7
+  const count = Math.round(density * envPadLayout.length)
+  const pads = envPadLayout.slice(0, count).map(([x, y, radius, rotation, flatten], i) => ({
+    x: (x + (hash(i + seed, 178) - .5) * .011) * columns,
+    y: (y + (hash(i + seed, 812) - .5) * .012) * rows,
+    radius: radius * columns, cos: Math.cos(rotation), sin: Math.sin(rotation), flatten, phase: i * 2.39,
+  }))
+  envDrawLilyPads(pond, pads, backPut, true)
+  envDrawLilyPads(pond, pads, frontPut)
+  const flowerCount = options.lotus === false ? 0 : options.lotusCount ?? 2
+  // Static painter time avoids rebuilding thousands of petal cells for sub-cell movement.
+  const still = { columns, rows, aspect, time: 0 }
+  for (let i = 0; i < flowerCount; i++) envDrawLotus(still, frontPut, envFlowerLayout[i])
+  const frontCells = []
+  for (let i = 0; i < total; i++) if (front.coverage[i] || front.chars[i] !== 32) frontCells.push(i)
+  return { key, back, front, frontCells, shimmer }
+}
+
+function envGet(pond) {
+  const options = pond.options || {}
+  const key = [pond.columns, pond.rows, pond.aspect, resolveEnvironment(options.environment || 'zen'), options.seed ?? 2026, options.detail, options.lilies, options.lilyDensity ?? .7, options.lotus, options.lotusCount ?? 2].join('|')
+  let cached = envCache.get(pond)
+  if (!cached || cached.key !== key) { cached = envBuild(pond, key); envCache.set(pond, cached) }
+  return cached
+}
+
+function envRing(pond, put, cx, cy, radius, color, strength = 1) {
+  if (radius < .2) return
+  const segments = Math.max(12, Math.ceil(radius * Math.PI * 2 / .85))
+  for (let i = 0; i < segments; i++) {
+    const angle = i / segments * Math.PI * 2
+    if (hash(i, Math.floor(radius * 3)) < .14) continue
+    put(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius / pond.aspect, '.', color, Math.round(90 + 70 * Math.min(1, strength)))
+  }
+}
+
+function envReflection(pond, put, scene) {
+  if (scene === 'zen') return
+  const cols = pond.columns, rows = pond.rows, time = pond.time || 0, center = scene === 'autumn' ? .57 : .615
+  const reach = scene === 'moonlight' ? .49 : .58
+  for (let y = 0; y < rows * reach; y++) {
+    const t = y / (rows * reach), drift = Math.sin(y * .51 + time * .48) * cols * (.006 + t * .008)
+    const width = cols * (.025 * (1 - t) + .006) * (.55 + hash(y, 284) * .65)
+    const x = cols * center + drift
+    if (hash(y, 718) < .22 + t * .3) continue
+    for (let dx = -width; dx < width; dx++) {
+      if (hash(Math.floor(dx * .5) + Math.floor(time * .6), y) < .23) continue
+      const brightness = clamp((1 - t) * .85 + hash(Math.floor(dx), y) * .2 - Math.abs(dx) / width * .3, 0, .99)
+      put(x + dx, y, Math.abs(dx) < width * .5 ? '-' : '.', 163 + Math.floor(brightness * 11), Math.round(70 + brightness * (scene === 'moonlight' ? 155 : 105)))
+    }
+    if (y % 4 === 0 && t < .5) put(x - width * 2.1, y, '.', 165, 45)
+  }
+}
+
+function paintEnvironmentBack(pond, frame, put) {
+  const cached = envGet(pond), time = pond.time || 0, options = pond.options || {}, scene = resolveEnvironment(options.environment || 'zen')
+  frame.chars.set(cached.back.chars); frame.colors.set(cached.back.colors); frame.coverage.set(cached.back.coverage)
+  const intensity = options.rippleIntensity ?? 1
+  if (intensity > 0) {
+    for (const [x, y, phase] of cached.shimmer) {
+      const light = Math.sin(time * .24 + phase)
+      if (light > .94) put(x + Math.sin(time * .08 + phase) * .6, y, '.', 100 + Math.floor((light - .94) * 60), 65)
+    }
+    // Wide, broken surface rings echo the reference without covering its open swimming area.
+    for (let i = 0; i < 3; i++) {
+      const pulse = ((time * .009 + i * .19) % .72), radius = pond.columns * (.11 + pulse * .37)
+      envRing(pond, put, pond.columns * [.4, .73, .16][i], pond.rows * [.71, .78, .91][i], radius, 102 + Math.floor(intensity), intensity * .45)
+    }
+    for (const ripple of pond.ripples || []) {
+      const radius = ripple.age * pond.columns * .078, strength = (ripple.strength ?? 1) * intensity
+      const color = ripple.age < .8 && strength > .8 ? 10 : ripple.age < 2 ? 3 : ripple.age < 3.5 ? 2 : 1
+      if (ripple.age > .04) envRing(pond, put, ripple.x, ripple.y, radius, color, strength)
+      if (ripple.age > .3) envRing(pond, put, ripple.x, ripple.y, radius * .72, ripple.age < 2 ? 2 : 1, strength * .7)
+    }
+  }
+  envReflection(pond, put, scene)
+}
+
+function paintEnvironmentFront(pond, frame, put) {
+  const cached = envGet(pond), options = pond.options || {}, time = pond.time || 0, cols = pond.columns, rows = pond.rows
+  for (const i of cached.frontCells) { frame.chars[i] = cached.front.chars[i]; frame.colors[i] = cached.front.colors[i]; frame.coverage[i] = cached.front.coverage[i] }
+  const scene = resolveEnvironment(options.environment || 'zen'), density = options.particleDensity ?? .45
+  const count = Math.round(density * (scene === 'zen' ? 13 : scene === 'moonlight' || scene === 'autumn' ? 28 : 38))
+  const seed = options.seed ?? 2026
+  for (let i = 0; i < count; i++) {
+    const phase = hash(i + seed, 923) * Math.PI * 2, speed = .17 + hash(i, seed + 82) * .2
+    const x = ((hash(i + seed, 47) * cols + time * speed + Math.sin(time * .19 + phase) * cols * .008) % (cols + 8)) - 4
+    const y = (hash(i + seed, 139) * rows + Math.sin(time * .15 + phase) * rows * .012 + time * (scene === 'moonlight' ? 0 : .065)) % rows
+    if (scene === 'moonlight') {
+      const glow = .5 + .5 * Math.sin(time * .9 + phase), color = 185 + Math.floor(glow * 5)
+      put(x, y, '.', color, Math.round(100 + glow * 130))
+      if (glow > .72) { put(x - 1, y, '.', 185, 40); put(x + 1, y, '.', 185, 40) }
+    } else if (scene === 'autumn') envFoliage(pond, put, x, y, Math.max(2.1, cols * .013), true, phase + Math.sin(time * .12) * .2)
+    else if (scene === 'sakura') {
+      put(x, y, i % 2 ? ',' : '/', 145 + i % 6, 220)
+      if (cols > 220 && i % 3 === 0) put(x + 1, y, '.', 147, 170)
+    } else if (i % 2) put(x, y, '.', 124, 70)
+    else put(x, y, ',', 141 + i % 6, 125)
+  }
+}
+
+
+const FISH_DENSITY = ':;t%SX8#@'
+const FISH_JOINTS = 22
+const FISH_LAYOUT = [
+  { x: .47, y: .24, angle: -.08, speed: 2.35, scale: .62, phase: .5, kind: 0, curve: .105 },
+  { x: .33, y: .43, angle: 3.04, speed: 2.8, scale: .92, phase: 2.5, kind: 1, curve: .017 },
+  { x: .29, y: .55, angle: -1.92, speed: 2.65, scale: .72, phase: 4.2, kind: 2, curve: -.065 },
+  { x: .11, y: .76, angle: 2.25, speed: 2.6, scale: .6, phase: 5.8, kind: 3, curve: -.035 },
+  { x: .59, y: .49, angle: -.32, speed: 3.4, scale: .3, phase: 1.2, kind: 2, curve: .026 },
+  { x: .68, y: .59, angle: -.52, speed: 3.6, scale: .25, phase: 1.7, kind: 3, curve: .07 },
+  { x: .54, y: .74, angle: -.18, speed: 3.3, scale: .32, phase: 3.8, kind: 0, curve: -.03 },
+]
+
+function fishCreate(pond, index) {
+  const n = index - 4, reference = FISH_LAYOUT[index]
+  const fish = reference ? { ...reference } : {
+    x: .18 + (n * .173) % .64, y: .18 + (n * .287) % .64,
+    angle: -.2 + n * 1.71, speed: 3.25 + n % 3 * .17, scale: [.3, .25, .32][n % 3],
+    phase: 1.1 + n * 1.39, kind: n % 4, curve: [-.03, .026, .07][n % 3],
+  }
+  if (pond.options.seed !== 2026) {
+    const seed = pond.options.seed
+    fish.x = .2 + hash(index * 7, seed) * .6
+    fish.y = .2 + hash(index * 7 + 1, seed) * .6
+    fish.angle = hash(index * 7 + 2, seed) * Math.PI * 2 - Math.PI
+    fish.phase = hash(index * 7 + 3, seed) * Math.PI * 2
+    fish.curve = (hash(index * 7 + 4, seed) - .5) * .14
+  }
+  fish.x *= pond.columns; fish.y *= pond.rows
+  fish.variety = pond.options.varieties[index % pond.options.varieties.length]
+  return fish
+}
+
+function fishInitialize(pond, fish) {
+  fish.turnVelocity = 0
+  fish.currentSpeed = fish.speed * pond.columns / 100 * pond.options.speed
+  fish.swimPhase = fish.phase
+  fish.spine = [{ x: fish.x, y: fish.y }]
+  const gap = fishLength(pond, fish) / (FISH_JOINTS - 1)
+  for (let j = 1; j < FISH_JOINTS; j++) {
+    const previous = fish.spine[j - 1], a = fish.angle + Math.PI + fish.curve * j
+    fish.spine.push({ x: previous.x + Math.cos(a) * gap, y: previous.y + Math.sin(a) * gap / pond.aspect })
+  }
+  fishFollowSpine(pond, fish)
+}
+
+const fishLength = (pond, fish) => 25 * fish.scale * pond.options.fishSize * pond.columns / 112
+
+function fishFollowSpine(pond, fish) {
+  const gap = fishLength(pond, fish) / (FISH_JOINTS - 1)
+  fish.spine[0].x = fish.x; fish.spine[0].y = fish.y
+  let backward = fish.angle + Math.PI
+  for (let i = 1; i < FISH_JOINTS; i++) {
+    const previous = fish.spine[i - 1], node = fish.spine[i]
+    const oldAngle = Math.atan2((node.y - previous.y) * pond.aspect, node.x - previous.x)
+    let angle = backward + clamp(wrap(oldAngle - backward), -.29, .29)
+    let dx = Math.cos(angle) * gap, dy = Math.sin(angle) * gap / pond.aspect
+    // Reflect the trailing joint at the bank while retaining its exact connection length.
+    if (previous.x + dx < 0 || previous.x + dx > pond.columns) dx = -dx
+    if (previous.y + dy < 0 || previous.y + dy > pond.rows) dy = -dy
+    node.x = previous.x + dx; node.y = previous.y + dy
+    backward = Math.atan2(dy * pond.aspect, dx)
+  }
+}
+
+function fishAdvance(pond, dt, disturb) {
+  const behavior = pond.options.behavior
+  let centerX = 0, centerY = 0, headingX = 0, headingY = 0
+  if (behavior === 'school') for (const fish of pond.fish) {
+    centerX += fish.x / pond.fish.length; centerY += fish.y / pond.fish.length
+    headingX += Math.cos(fish.angle) / pond.fish.length; headingY += Math.sin(fish.angle) / pond.fish.length
+  }
+  for (const fish of pond.fish) {
+    let target = { x: pond.columns * (.5 + .32 * Math.cos(pond.time * .055 + fish.phase)), y: pond.rows * (.5 + .3 * Math.sin(pond.time * .045 + fish.phase)) }
+    if (behavior === 'circle') {
+      const theta = Math.atan2((fish.y / pond.rows - .5) / .29, (fish.x / pond.columns - .5) / .32) + .65
+      target = { x: pond.columns * (.5 + .32 * Math.cos(theta)), y: pond.rows * (.5 + .29 * Math.sin(theta)) }
+    } else if (behavior === 'school') {
+      target = { x: centerX * .65 + pond.columns * (.5 + .24 * Math.cos(pond.time * .075)) * .35,
+        y: centerY * .65 + pond.rows * (.5 + .24 * Math.sin(pond.time * .075)) * .35 }
+    }
+    let nearest = Infinity, pellet
+    for (const p of pond.food) {
+      const d = Math.hypot(p.x - fish.x, (p.y - fish.y) * pond.aspect)
+      if (d < nearest) { nearest = d; target = p; pellet = p }
+    }
+    if (pellet && nearest < Math.max(.8, fishLength(pond, fish) * .075)) {
+      pond.food.splice(pond.food.indexOf(pellet), 1); pond.eaten++
+      disturb(pond, pellet.x, pellet.y, .3); pellet = undefined
+    }
+    let hx = target.x - fish.x, hy = (target.y - fish.y) * pond.aspect
+    const toward = Math.hypot(hx, hy) || 1
+    hx /= toward; hy /= toward
+    if (!pellet && behavior === 'school') { hx += headingX * 1.4; hy += headingY * 1.4 }
+    if (!pellet && behavior === 'wander') {
+      const ax = (fish.x - pond.columns / 2) / (pond.columns * .2), ay = (fish.y - pond.rows / 2) / (pond.rows * .18)
+      const distance = Math.hypot(ax, ay) || .001
+      if (distance < 1.3) { const push = (1.3 - distance) * 1.5; hx += ax / distance * push; hy += ay / distance * push }
+    }
+    for (const other of pond.fish) if (other !== fish) {
+      const dx = fish.x - other.x, dy = (fish.y - other.y) * pond.aspect, d = Math.hypot(dx, dy)
+      const safe = (fishLength(pond, fish) + fishLength(pond, other)) * .25
+      if (d > .01 && d < safe) { const push = (1 - d / safe) * (pellet ? .35 : 1.1); hx += dx / d * push; hy += dy / d * push }
+    }
+    const edge = fishLength(pond, fish) * .7
+    if (fish.x < edge) hx += (edge - fish.x) / edge * 2.5
+    if (fish.x > pond.columns - edge) hx -= (fish.x - pond.columns + edge) / edge * 2.5
+    const edgeY = edge / pond.aspect
+    if (fish.y < edgeY) hy += (edgeY - fish.y) / edgeY * 2.5
+    if (fish.y > pond.rows - edgeY) hy -= (fish.y - pond.rows + edgeY) / edgeY * 2.5
+    const error = wrap(Math.atan2(hy, hx) - fish.angle)
+    const desiredTurn = clamp(error * 1.5, -.8, .8)
+    fish.turnVelocity += (desiredTurn - fish.turnVelocity) * (1 - Math.exp(-dt * 3.5))
+    fish.angle = wrap(fish.angle + fish.turnVelocity * dt)
+    const speedTarget = fish.speed * pond.columns / 100 * pond.options.speed * (pellet ? 1.55 : .88 + .08 * Math.sin(pond.time * .6 + fish.phase))
+    fish.currentSpeed += (speedTarget - fish.currentSpeed) * (1 - Math.exp(-dt * 1.8))
+    fish.x = clamp(fish.x + Math.cos(fish.angle) * fish.currentSpeed * dt, .5, pond.columns - .5)
+    fish.y = clamp(fish.y + Math.sin(fish.angle) * fish.currentSpeed * dt / pond.aspect, .5, pond.rows - .5)
+    fish.swimPhase += dt * (1.5 + fish.currentSpeed / pond.columns * 38)
+    fishFollowSpine(pond, fish)
+  }
+}
+
+function fishAnimatedSpine(pond, fish) {
+  const length = fishLength(pond, fish)
+  return fish.spine.map((p, i, nodes) => {
+    const t = i / (FISH_JOINTS - 1), previous = nodes[Math.max(0, i - 1)], next = nodes[Math.min(FISH_JOINTS - 1, i + 1)]
+    const dx = previous.x - next.x, dy = (previous.y - next.y) * pond.aspect, d = Math.hypot(dx, dy) || 1
+    const wave = Math.sin(fish.swimPhase - t * 4.6) * length * .024 * t ** 1.8
+    return { x: p.x - dy / d * wave, y: p.y + dx / d * wave / pond.aspect }
+  })
+}
+
+function fishDrawWake(pond, fish, frame, put) {
   const length = fishLength(pond, fish)
   for (let i = 0; i < 19; i++) {
     if (i % 3 === 1) continue
-    const t = .45 + i * .05, joint = Math.min(JOINTS - 1, Math.round(t * (JOINTS - 1)))
+    const t = .45 + i * .05, joint = Math.min(FISH_JOINTS - 1, Math.round(t * (FISH_JOINTS - 1)))
     const node = fish.spine[joint], previous = fish.spine[Math.max(0, joint - 1)]
     const dx = node.x - previous.x, dy = (node.y - previous.y) * pond.aspect, distance = Math.hypot(dx, dy) || 1
     const extension = Math.max(0, t - 1) * length, spread = length * (.07 + (t - .45) * .13)
     const x = node.x + dx / distance * extension, y = node.y + dy / distance * extension / pond.aspect
-    for (const side of [-1, 1]) put(x - dy / distance * spread * side, y + dx / distance * spread * side / pond.aspect, '.', t < .75 ? 2 : 1)
+    for (const side of [-1, 1]) {
+      const px = Math.round(x - dy / distance * spread * side), py = Math.round(y + dx / distance * spread * side / pond.aspect)
+      if (px < 0 || px >= frame.columns || py < 0 || py >= frame.rows) continue
+      const index = py * frame.columns + px
+      put(px, py, '.', frame.colors[index], frame.coverage[index])
+    }
   }
 }
 
-function renderPond(pond) {
-  const { columns: cols, rows, time, aspect } = pond
-  const chars = new Uint8Array(cols * rows).fill(32), colors = new Uint8Array(cols * rows), coverage = new Uint8Array(cols * rows)
-  const put = (x, y, glyph, color, surface = 0) => {
-    x = Math.round(x); y = Math.round(y)
-    if (x >= 0 && x < cols && y >= 0 && y < rows) { const i = y * cols + x; chars[i] = glyph.charCodeAt(0); colors[i] = color; coverage[i] = surface }
-  }
-  // Reuse each column's wave phase across rows instead of evaluating trig per cell.
-  const water = Array.from({ length: cols }, (_, x) => {
-    const bend = x * .09 + Math.sin(x * .05 + time * .08)
-    return [Math.sin(bend), Math.cos(bend), Math.sin(x * .025), Math.cos(x * .025)]
-  })
-  for (let y = 0; y < rows; y++) {
-    const sy = Math.sin(y * .36), cy = Math.cos(y * .36), sy2 = Math.sin(-y * .21 - time * .04), cy2 = Math.cos(-y * .21 - time * .04)
-    for (let x = 0; x < cols; x++) {
-      const w = water[x], wave = w[0] * cy + w[1] * sy + w[3] * cy2 - w[2] * sy2
-      if (Math.abs(wave) < .036 && hash(x, y) > .66) put(x, y, '.', 1)
-    }
-  }
-  // Trace only the rings' perimeters; work scales with circumference, not pond area.
-  const ring = (r, radius, color) => {
-    const segments = Math.max(12, Math.ceil(radius * Math.PI * 2 / .8))
-    for (let i = 0; i < segments; i++) {
-      const angle = i / segments * Math.PI * 2
-      put(r.x + Math.cos(angle) * radius, r.y + Math.sin(angle) * radius / aspect, radius > 1 ? '.' : '*', color)
-    }
-  }
-  if (pond.options.environment === 'rain') {
-    const count = Math.min(72, Math.max(14, Math.round(cols * rows / 800)))
-    for (let i = 0; i < count; i++) {
-      const lifetime = time * .7 + hash(i, 81) * 2.8, cycle = Math.floor(lifetime / 2.8), age = lifetime - cycle * 2.8
-      const center = { x: hash(i + cycle * 59, 19) * cols, y: hash(i + cycle * 41, 137) * rows }
-      ring(center, .35 + age * 2.7, age < .3 ? 4 : age < 1.6 ? 3 : 2)
-      if (age > 1.35) ring(center, .35 + (age - 1.35) * 2.7, 2)
-    }
-  }
-  for (const r of pond.ripples) {
-    const radius = r.age * cols * .078, color = r.age < .8 && r.strength > .8 ? 10 : r.age < 2 ? 3 : r.age < 3.5 ? 2 : 1
-    if (r.age > .04) ring(r, radius, color)
-    if (r.age > .3) ring(r, radius * .72, r.age < 2 ? 2 : 1)
-  }
-  const pads = pond.options.lilies ? lilyPads(pond) : []
-  if (pond.options.lilies) drawLilyPads(pond, pads, put, true)
-  for (const fish of pond.fish) drawFishWake(pond, fish, put)
+function fishPaint(pond, frame, put) {
+  const { columns: cols, rows, aspect } = pond
+  let distances = new Float64Array(0), fractions = new Float64Array(0), closest = new Uint8Array(0)
+  for (const fish of pond.fish) fishDrawWake(pond, fish, frame, put)
   for (const fish of pond.fish) {
-    const spine = animatedSpine(pond, fish), s = fish.scale * cols / 112
+    const spine = fishAnimatedSpine(pond, fish), s = fish.scale * pond.options.fishSize * cols / 112
     const segments = spine.slice(0, -1).map((a, j) => {
       const b = spine[j + 1], dx = b.x - a.x, dy = (b.y - a.y) * aspect
       return { x: a.x, y: a.y, dx, dy, inverseSquared: 1 / (dx * dx + dy * dy || 1), angle: Math.atan2(-dy, -dx) }
@@ -389,28 +593,40 @@ function renderPond(pond) {
     const xs = spine.map(p => p.x), ys = spine.map(p => p.y), margin = 6 * s
     const left = Math.max(0, Math.floor(Math.min(...xs) - margin)), right = Math.min(cols - 1, Math.ceil(Math.max(...xs) + margin))
     const top = Math.max(0, Math.floor(Math.min(...ys) - margin / aspect)), bottom = Math.min(rows - 1, Math.ceil(Math.max(...ys) + margin / aspect))
-    for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++) {
-      let best = Infinity, t = 0, side = 1, angle = fish.angle
-      for (let j = 0; j < JOINTS - 1; j++) {
-        const a = segments[j], { dx, dy } = a
+    const gridWidth = right - left + 1, cells = gridWidth * (bottom - top + 1)
+    if (cells > distances.length) { distances = new Float64Array(cells); fractions = new Float64Array(cells); closest = new Uint8Array(cells) }
+    distances.fill(Infinity, 0, cells)
+    // Visit only the narrow strip around each joint rather than testing every joint for every pixel.
+    for (let j = 0; j < segments.length; j++) {
+      const a = segments[j], b = spine[j + 1], { dx, dy } = a
+      const x0 = Math.max(left, Math.floor(Math.min(a.x, b.x) - margin)), x1 = Math.min(right, Math.ceil(Math.max(a.x, b.x) + margin))
+      const y0 = Math.max(top, Math.floor(Math.min(a.y, b.y) - margin / aspect)), y1 = Math.min(bottom, Math.ceil(Math.max(a.y, b.y) + margin / aspect))
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
         const px = x - a.x, py = (y - a.y) * aspect
         const at = clamp((px * dx + py * dy) * a.inverseSquared, 0, 1)
-        const distance = (px - dx * at) ** 2 + (py - dy * at) ** 2
-        if (distance < best) { best = distance; t = (j + at) / (JOINTS - 1); side = dx * py - dy * px >= 0 ? 1 : -1; angle = a.angle }
+        const distance = (px - dx * at) ** 2 + (py - dy * at) ** 2, index = (y - top) * gridWidth + x - left
+        if (distance < distances[index]) { distances[index] = distance; closest[index] = j; fractions[index] = at }
       }
+    }
+    for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++) {
+      const index = (y - top) * gridWidth + x - left, best = distances[index]
+      if (best === Infinity) continue
+      const j = closest[index], a = segments[j]
+      let t = (j + fractions[index]) / (FISH_JOINTS - 1)
+      const side = a.dx * (y - a.y) * aspect - a.dy * (x - a.x) >= 0 ? 1 : -1, angle = a.angle
       let lateral = Math.sqrt(best) * side
       // Beyond an endpoint, keep the tangent coordinate instead of wrapping a fin around it.
       if (t === 0 || t === 1) {
-        const end = spine[t === 0 ? 0 : JOINTS - 1], near = spine[t === 0 ? 1 : JOINTS - 2]
+        const end = spine[t === 0 ? 0 : FISH_JOINTS - 1], near = spine[t === 0 ? 1 : FISH_JOINTS - 2]
         const dx = (t === 0 ? near.x - end.x : end.x - near.x), dy = (t === 0 ? near.y - end.y : end.y - near.y) * aspect
         const length = Math.hypot(dx, dy) || 1, px = x - end.x, py = (y - end.y) * aspect
         t += (px * dx + py * dy) / length / (25 * s)
         lateral = (dx * py - dy * px) / length
       }
-      const u = 8 - t * 25, v = lateral / s, width = bodyWidth(u)
+      const u = 8 - t * 25, v = lateral / s, width = fishBodyWidth(u)
       if (u > -10 && u < 8 && Math.abs(v) <= width) {
-        const nx = -(bodyHeight(u + .1, v) - bodyHeight(u - .1, v)) / .2
-        const ny = -(bodyHeight(u, v + .1) - bodyHeight(u, v - .1)) / .2
+        const nx = -(fishBodyHeight(u + .1, v) - fishBodyHeight(u - .1, v)) / .2
+        const ny = -(fishBodyHeight(u, v + .1) - fishBodyHeight(u, v - .1)) / .2
         const normal = Math.hypot(nx, ny, 1), cos = Math.cos(angle), sin = Math.sin(angle)
         const diffuse = Math.max(0, (-.35 * (nx * cos - ny * sin) - .45 * (nx * sin + ny * cos) + .82) / normal)
         const across = v * 1.6, row = Math.floor(across), cross = across - row
@@ -424,18 +640,24 @@ function renderPond(pond) {
         if (lateralLine) light -= .08
         light = clamp(light, 0, 1)
         const patch = Math.sin(u * .53 + fish.phase) + Math.cos(v * .9 + u * .2) + Math.sin(u * 1.2 - v * 1.3 + fish.phase) * .16 > .48
-        let family = fish.kind < 2 ? (patch ? 23 : 15) : fish.kind === 2 ? (patch ? 31 : 15) : (patch ? 15 : 31)
-        if (fish.kind === 1 && u > 5) family = 23
+        let family = fish.kind === 3 ? (patch ? 15 : 23) : patch || (fish.kind === 1 && u > 5) ? 23 : 15
+        if (fish.variety === 'ogon') family = 31
+        else if (fish.variety === 'sanke') {
+          const ink = Math.sin(u * 1.05 - fish.phase) + Math.cos(v * 1.9 + u * .36) > 1.05 && u < 4.8
+          if (ink) family = 39
+        } else if (fish.variety === 'shusui') {
+          family = Math.abs(v) < width * .57 && u < 5.4 ? 83 : Math.abs(v) > width * .72 && u < 3.8 ? 23 : 15
+        }
         const eyeDistance = Math.hypot((u - 6.1) * .9, Math.abs(v) - 1.55), eye = eyeDistance < .31
         const gill = Math.abs(u - 4.1 + v * v * .11) < .19 && Math.abs(v) > .9
         const mouth = u > 7.3 && Math.abs(v) < .55
         if (gill) light *= .64
         const glyph = eye ? 'o' : mouth ? '=' : gill ? ')' : ridge ? '^' : scaleSeam ? (cross < .5 ? '(' : ')')
-          : DENSITY[Math.floor(clamp(.15 + light * .8, 0, 1) * (DENSITY.length - 1))]
-        put(x, y, glyph, eye || mouth ? 14 : family + Math.floor(light * 7), eye ? 255 : 242)
-        if (eyeDistance >= .31 && eyeDistance < .49) put(x, y, '.', 12, 225)
+          : FISH_DENSITY[Math.floor(clamp(.15 + light * .8, 0, 1) * (FISH_DENSITY.length - 1))]
+        put(x, y, glyph, eye || mouth ? 39 : family + Math.floor(light * (family === 39 ? 5 : 7)), eye ? 255 : 242)
+        if (eyeDistance >= .31 && eyeDistance < .49) put(x, y, '.', 15, 225)
       } else if (u > 5.7 && u < 7.5 && Math.abs(Math.abs(v) - (2.5 - (u - 5.7) * .65)) < .18) {
-        put(x, y, v > 0 ? '/' : '\\', 12, 110)
+        put(x, y, v > 0 ? '/' : '\\', 15, 110)
       } else if (u > -2.8 && u < 4 && Math.abs(v) > 2.6) {
         const flutter = .91 + .09 * Math.sin(fish.swimPhase - .7)
         const edge = 3 + 2.5 * Math.sin((u + 2.8) / 6.8 * Math.PI) * flutter
@@ -447,32 +669,107 @@ function renderPond(pond) {
         const q = (-u - 9.5) / 7.5, fan = .48 + 3.8 * Math.sin(q * Math.PI * .56) ** 1.35
         if (Math.abs(v) < fan && q < .82 + .2 * Math.sin(Math.abs(v) / fan * Math.PI) && !(q > .67 && Math.abs(v) < (q - .67) * 3.5)) {
           const ray = Math.abs(Math.sin(v / fan * 22 + q * 1.7)), rim = fan - Math.abs(v) < .25
-          const family = fish.kind === 2 ? 31 : 39, count = fish.kind === 2 ? 7 : 5
+          const family = fish.variety === 'ogon' ? 31 : fish.variety === 'shusui' ? 83 : 39, count = family === 39 ? 5 : 7
           put(x, y, rim ? '.' : ray > .68 ? ';' : ':', family + Math.floor((.2 + ray * .57) * count), rim ? 125 : 165 + Math.round(ray * 60))
         }
       }
     }
   }
-  for (const pellet of pond.food) put(pellet.x, pellet.y, time % .8 < .4 ? '.' : '*', 9)
-  if (pond.options.environment === 'dusk') {
-    for (let i = 0; i < 5; i++) {
-      const x = ((i * 53 + time * (1.6 + i * .13)) % (cols + 10)) - 5
-      const y = ((i * 19 + Math.sin(time * .32 + i * 2.1) * 3 + 7) % rows)
-      put(x, y, i % 2 ? ',' : '.', i % 2 ? 59 : 60)
-    }
-  }
-  if (pond.options.lilies) drawLilyPads(pond, pads, put)
-  if (pond.options.lotus) drawLotus(pond, put)
-  return { columns: cols, rows, chars, colors, coverage, palette: paletteForEnvironment(pond.options.environment, PALETTE) }
 }
 
-function bodyWidth(u) {
+function fishBodyWidth(u) {
   if (u <= -10 || u >= 8) return 0
   return u >= 4 ? 3.15 * Math.sqrt(Math.max(0, 1 - ((u - 4) / 4) ** 2)) : .38 + 2.77 * Math.sin((u + 10) / 14 * Math.PI / 2) ** 1.5
 }
-function bodyHeight(u, v) {
-  const width = bodyWidth(u)
+function fishBodyHeight(u, v) {
+  const width = fishBodyWidth(u)
   return width > 0 ? width * .55 * Math.sqrt(Math.max(0, 1 - (v / width) ** 2)) : 0
+}
+
+
+
+function createPond(columns = 120, rows = 44, aspect = 1.6, options = {}) {
+  const normalizedOptions = validateOptions(options)
+  const pond = { columns, rows, aspect, time: 0, paused: normalizedOptions.paused, options: normalizedOptions, eaten: 0, ripples: [], food: [], fish: [] }
+  while (pond.fish.length < normalizedOptions.fishCount) {
+    const fish = fishCreate(pond, pond.fish.length)
+    fishInitialize(pond, fish)
+    pond.fish.push(fish)
+  }
+  return pond
+}
+
+function configurePond(pond, partial) {
+  const options = validateOptions(partial, pond.options), previous = pond.options
+  pond.options = options
+  pond.paused = options.paused
+  if (options.seed !== previous.seed) pond.fish = []
+  while (pond.fish.length > options.fishCount) pond.fish.pop()
+  while (pond.fish.length < options.fishCount) {
+    const fish = fishCreate(pond, pond.fish.length)
+    fishInitialize(pond, fish)
+    pond.fish.push(fish)
+  }
+  if (options.fishSize !== previous.fishSize) for (const fish of pond.fish) fishFollowSpine(pond, fish)
+  if (options.varieties.some((id, index) => id !== previous.varieties[index]) || options.varieties.length !== previous.varieties.length) {
+    pond.fish.forEach((fish, index) => { fish.variety = options.varieties[index % options.varieties.length] })
+  }
+  return { ...options, varieties: [...options.varieties] }
+}
+
+function resizePond(pond, columns, rows) {
+  const sx = columns / pond.columns, sy = rows / pond.rows
+  for (const p of [...pond.fish, ...pond.ripples, ...pond.food]) { p.x *= sx; p.y *= sy }
+  for (const fish of pond.fish) {
+    fish.currentSpeed *= sx
+    for (const node of fish.spine) { node.x *= sx; node.y *= sy }
+  }
+  pond.columns = columns; pond.rows = rows
+  for (const fish of pond.fish) fishFollowSpine(pond, fish)
+}
+
+function disturb(pond, x, y, strength = 1) {
+  pond.ripples.push({ x: clamp(x, 0, pond.columns - 1), y: clamp(y, 0, pond.rows - 1), age: 0, strength })
+  if (pond.ripples.length > 10) pond.ripples.shift()
+}
+
+function feed(pond, x, y) {
+  const margin = Math.min(3, pond.columns / 5, pond.rows / 5)
+  pond.food.push({ x: clamp(x, margin, pond.columns - margin), y: clamp(y, margin, pond.rows - margin), age: 0 })
+  if (pond.food.length > 8) pond.food.shift()
+  disturb(pond, x, y, 1)
+}
+
+function advance(pond, delta) {
+  if (pond.paused || pond.options.paused) return
+  // Small substeps keep steering and connected bodies consistent at any refresh rate.
+  const duration = clamp(delta, 0, .15), count = Math.max(1, Math.ceil(duration * 120))
+  for (let i = 0; i < count; i++) {
+    const dt = duration / count
+    pond.time += dt
+    for (const ripple of pond.ripples) ripple.age += dt
+    for (const pellet of pond.food) pellet.age += dt
+    pond.ripples = pond.ripples.filter(ripple => ripple.age < 5)
+    pond.food = pond.food.filter(pellet => pellet.age < 18)
+    fishAdvance(pond, dt, disturb)
+  }
+}
+
+function renderPond(pond) {
+  const { columns, rows } = pond
+  const frame = { columns, rows, chars: new Uint8Array(columns * rows).fill(32), colors: new Uint8Array(columns * rows), coverage: new Uint8Array(columns * rows), palette: paletteForEnvironment(pond.options.environment, PALETTE, pond.options) }
+  const put = (x, y, glyph, color, surface = 0) => {
+    x = Math.round(x); y = Math.round(y)
+    if (x >= 0 && x < columns && y >= 0 && y < rows) {
+      const index = y * columns + x
+      frame.chars[index] = glyph.charCodeAt(0); frame.colors[index] = color; frame.coverage[index] = surface
+    }
+  }
+  paintEnvironmentBack(pond, frame, put)
+  fishPaint(pond, frame, put)
+  for (const pellet of pond.food) put(pellet.x, pellet.y, pond.time % .8 < .4 ? '.' : '*', 38)
+  paintEnvironmentFront(pond, frame, put)
+  return frame
 }
 
 
@@ -491,13 +788,16 @@ function createKoiPond(canvas, options = {}) {
   let pond = createPond(120, 44, 1.6, { ...settings, paused: settings.paused || media.matches })
   let destroyed = false, raf = 0, previous = 0, inView = true, width = 0, height = 0, cellX = 3, cellY = 4.8
   let down, keyboardCursor, lastPoint, lastStir = -Infinity, palette, fromPalette, paletteTime = 0
+  let paintedFrame, paintedPalette, paintedCursor = false, frameBudget = 1000 / 60, slowFrames = 0
+  let columnEdges, rowEdges
   const saved = Object.fromEntries(['tabindex', 'role', 'aria-label'].map(key => [key, canvas.getAttribute(key)]))
   const originalTouchAction = canvas.style.touchAction
   const originalCursor = canvas.style.cursor
   canvas.style.touchAction = 'pan-y'
 
   const alive = () => { if (destroyed) throw new Error('This pond has been destroyed') }
-  const state = () => Object.freeze({ ...pond.options, paused: pond.paused, foodCount: pond.food.length, eaten: pond.eaten, destroyed })
+  const config = () => Object.freeze({ ...pond.options, varieties: Object.freeze([...pond.options.varieties]), paused: pond.paused })
+  const state = () => Object.freeze({ ...config(), foodCount: pond.food.length, eaten: pond.eaten, destroyed })
   const announce = () => {
     canvas.tabIndex = pond.options.interactive ? 0 : -1
     canvas.style.cursor = pond.options.interactive ? 'crosshair' : 'default'
@@ -507,7 +807,7 @@ function createKoiPond(canvas, options = {}) {
   }
   const mixPalette = (next, now) => {
     if (!fromPalette || pond.paused || media.matches) { fromPalette = undefined; return next }
-    const t = bounded((now - paletteTime) / 420), ease = 1 - (1 - t) ** 3
+    const t = bounded((now - paletteTime) / 280), ease = 1 - (1 - t) ** 3
     if (t === 1) { fromPalette = undefined; return next }
     return next.map((color, i) => {
       const old = fromPalette[i] || color
@@ -518,19 +818,25 @@ function createKoiPond(canvas, options = {}) {
     if (destroyed || !width || !height) return
     const frame = renderPond(pond)
     palette = mixPalette(frame.palette, now)
-    ctx.fillStyle = palette[0]; ctx.fillRect(0, 0, width, height)
+    const full = !paintedFrame || paintedFrame.columns !== frame.columns || paintedFrame.rows !== frame.rows || !paintedPalette || palette.some((color, i) => color !== paintedPalette[i]) || keyboardCursor || paintedCursor
+    if (full) { ctx.fillStyle = palette[0]; ctx.fillRect(0, 0, width, height) }
     for (let y = 0; y < frame.rows; y++) for (let x = 0; x < frame.columns; x++) {
       const i = y * frame.columns + x
-      if (frame.chars[i] === 32) continue
+      if (!full && frame.chars[i] === paintedFrame.chars[i] && frame.colors[i] === paintedFrame.colors[i] && frame.coverage[i] === paintedFrame.coverage[i]) continue
+      const left = columnEdges[x], top = rowEdges[y], cellWidth = columnEdges[x + 1] - left, cellHeight = rowEdges[y + 1] - top
+      if (!full) { ctx.fillStyle = palette[0]; ctx.fillRect(left, top, cellWidth, cellHeight) }
+      if (frame.chars[i] === 32 && !frame.coverage[i]) continue
       ctx.fillStyle = palette[frame.colors[i]]
       if (frame.coverage[i]) {
         ctx.globalAlpha = frame.coverage[i] / 255
-        ctx.fillRect(x * cellX + .1, y * cellY + .1, cellX - .2, cellY - .2)
+        const inset = frame.colors[i] >= 91 && frame.colors[i] <= 106 && frame.chars[i] === 32 ? 0 : .1
+        ctx.fillRect(left + inset, top + inset, cellWidth - inset * 2, cellHeight - inset * 2)
         ctx.globalAlpha = 1
       }
-      if (frame.coverage[i] > 128) ctx.fillStyle = frame.colors[i] >= 59 ? 'rgba(74,27,48,.3)' : frame.colors[i] >= 45 ? 'rgba(5,22,12,.4)' : 'rgba(55,47,35,.28)'
-      ctx.fillText(String.fromCharCode(frame.chars[i]), (x + .5) * cellX, (y + .5) * cellY)
+      if (frame.coverage[i] > 128) ctx.fillStyle = frame.colors[i] >= 91 ? 'rgba(0,0,0,.16)' : frame.colors[i] >= 83 ? 'rgba(12,35,44,.3)' : frame.colors[i] >= 59 ? 'rgba(74,27,48,.3)' : frame.colors[i] >= 45 ? 'rgba(5,22,12,.4)' : 'rgba(55,47,35,.28)'
+      if (frame.chars[i] !== 32) ctx.fillText(String.fromCharCode(frame.chars[i]), (x + .5) * cellX, (y + .5) * cellY)
     }
+    paintedFrame = frame; paintedPalette = palette; paintedCursor = Boolean(keyboardCursor)
     if (keyboardCursor && pond.options.interactive) {
       ctx.fillStyle = palette[9]
       ctx.font = `500 ${Math.max(10, cellY)}px monospace`
@@ -544,11 +850,15 @@ function createKoiPond(canvas, options = {}) {
     raf = 0
     if (!canRun()) return
     if (!previous) previous = now
-    if (now - previous >= 1000 / 60 - 1) {
+    if (now - previous >= frameBudget - 1) {
+      const started = win.performance.now()
       const eaten = pond.eaten, foodCount = pond.food.length
       advance(pond, Math.min((now - previous) / 1000, .1)); previous = now
       paint(now)
       if (pond.eaten !== eaten || pond.food.length !== foodCount) announce()
+      const elapsed = win.performance.now() - started
+      slowFrames = elapsed > 18 ? slowFrames + 1 : Math.max(0, slowFrames - 1)
+      if (slowFrames > 12) frameBudget = 1000 / 30
     }
     raf = win.requestAnimationFrame(tick)
   }
@@ -558,15 +868,20 @@ function createKoiPond(canvas, options = {}) {
     const rect = canvas.getBoundingClientRect(), dpr = Math.min(win.devicePixelRatio || 1, 2)
     width = rect.width; height = rect.height
     if (!width || !height) { stop(); return }
-    const fine = pond.options.detail === 'fine', maximum = fine ? 480 : 300
+    const fine = pond.options.detail === 'fine'
+    const workload = Math.max(1, pond.options.fishCount / 14) * Math.max(1, pond.options.fishSize) ** 2
+    const maximum = Math.max(fine ? 180 : 140, Math.floor((fine ? 480 : 300) / Math.sqrt(workload)))
     cellX = Math.max(fine ? 2.5 : 4, Math.min(fine ? 4 : 6, width / (fine ? 280 : 180)), width / maximum)
     cellY = cellX * 1.6
     canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr)
+    paintedFrame = undefined; frameBudget = 1000 / 60; slowFrames = 0
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.font = `500 ${cellY * .78}px ui-monospace, Consolas, monospace`
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
     pond.aspect = cellY / cellX
     resizePond(pond, Math.max(20, Math.floor(width / cellX)), Math.max(12, Math.floor(height / cellY)))
+    columnEdges = Float64Array.from({ length: pond.columns + 1 }, (_, x) => Math.round(x * cellX * dpr) / dpr)
+    rowEdges = Float64Array.from({ length: pond.rows + 1 }, (_, y) => Math.round(y * cellY * dpr) / dpr)
     paint(); resume()
   }
   const coordinates = (x, y) => {
@@ -645,9 +960,14 @@ function createKoiPond(canvas, options = {}) {
 
   const controller = {
     getState: state,
+    getConfig: config,
+    setConfig(value) { return controller.setOptions(typeof value === 'string' ? parseConfig(value) : value && typeof value === 'object' && 'version' in value ? parseConfig(JSON.stringify(value)) : validateOptions(value)) },
+    resetToDefaults() { controller.setOptions({ ...DEFAULT_OPTIONS, paused: media.matches }); return controller.reset() },
+    randomize(seed) { controller.setOptions({ ...randomizeConfig(seed), paused: pond.paused, interactive: pond.options.interactive }); controller.reset(); return config() },
+    serialize() { return serializeConfig(config()) },
     setOptions(partial) {
       alive()
-      const next = validateOptions(partial, pond.options), environmentChanged = next.environment !== pond.options.environment, detailChanged = next.detail !== pond.options.detail
+      const next = validateOptions(partial, pond.options), environmentChanged = next.environment !== pond.options.environment, detailChanged = next.detail !== pond.options.detail || next.fishCount !== pond.options.fishCount || next.fishSize !== pond.options.fishSize
       if (environmentChanged) { fromPalette = palette?.slice(); paletteTime = win.performance.now() }
       configurePond(pond, partial)
       down = undefined
@@ -690,7 +1010,7 @@ function createKoiPond(canvas, options = {}) {
 }
 
 
-const attributes = { environment: 'environment', speed: 'speed', 'fish-count': 'fishCount', lilies: 'lilies', lotus: 'lotus', detail: 'detail', paused: 'paused', interactive: 'interactive' }
+const attributes = { environment: 'environment', speed: 'speed', 'fish-count': 'fishCount', 'fish-size': 'fishSize', varieties: 'varieties', behavior: 'behavior', 'water-color': 'waterColor', 'lily-density': 'lilyDensity', 'lotus-count': 'lotusCount', 'particle-density': 'particleDensity', 'ripple-intensity': 'rippleIntensity', 'time-of-day': 'timeOfDay', seed: 'seed', lilies: 'lilies', lotus: 'lotus', detail: 'detail', paused: 'paused', interactive: 'interactive' }
 const booleans = new Set(['lilies', 'lotus', 'paused', 'interactive'])
 const HTMLElementBase = globalThis.HTMLElement || class {}
 
@@ -701,7 +1021,10 @@ function parseAttribute(name, value) {
     if (value === 'false') return false
     throw new TypeError(`${name} must be true or false`)
   }
-  if (name === 'speed' || name === 'fish-count') return value.trim() === '' ? NaN : Number(value)
+  if (name === 'varieties') return value.split(',').map(item => item.trim())
+  if (name === 'water-color' && value === 'auto') return null
+  if (name === 'time-of-day' && value === 'auto') return 'auto'
+  if (['speed', 'fish-count', 'fish-size', 'lily-density', 'lotus-count', 'particle-density', 'ripple-intensity', 'time-of-day', 'seed'].includes(name)) return value.trim() === '' ? NaN : Number(value)
   return value
 }
 
@@ -736,8 +1059,7 @@ class KoiPondElement extends HTMLElementBase {
     if (!this.pond) { if (this.isConnected) this.connectedCallback(); return }
     try {
       const parsed = parseAttribute(name, value)
-      const defaults = { environment: 'midnight', speed: 1.35, fishCount: 7, lilies: true, lotus: true, detail: 'fine', paused: false, interactive: true }
-      this.pond.setOptions({ [attributes[name]]: parsed === undefined ? defaults[attributes[name]] : parsed })
+      this.pond.setOptions({ [attributes[name]]: parsed === undefined ? DEFAULT_OPTIONS[attributes[name]] : parsed })
     } catch (error) { this.report(error) }
   }
   report(error) {
@@ -755,5 +1077,5 @@ function registerKoiPond(tagName = 'koi-pond') {
   return Element
 }
 
-export { createKoiPond, registerKoiPond, KoiPondElement, ENVIRONMENTS };
+export { createKoiPond, registerKoiPond, KoiPondElement, ENVIRONMENTS, DEFAULT_OPTIONS, VARIETIES, validateOptions, serializeConfig, parseConfig, randomizeConfig };
 if (globalThis.customElements && globalThis.HTMLElement) registerKoiPond();

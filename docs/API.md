@@ -1,6 +1,6 @@
 # API
 
-Koi Pond provides a custom element for markup-first use and a controller for canvases managed by your application. The committed browser files work without a package install. The npm package `@dhruvil-codes/koi-pond` is not published yet.
+Koi Pond can run as a custom element or as a controller on a canvas. The library and generated browser builds have no runtime dependencies. The package name is `@dhruvil-codes/koi-pond`; the npm registry package is not published. See [installation](../README.md#install-from-github) for the GitHub source command.
 
 ## Custom element
 
@@ -8,66 +8,97 @@ Load the classic browser build to register `<koi-pond>`:
 
 ```html
 <script src="./dist/koi-pond.iife.js"></script>
-<koi-pond environment="rain" speed="1.2" fish-count="6" style="display:block;height:420px"></koi-pond>
+<koi-pond environment="moonlight" fish-count="8" style="display:block;height:420px"></koi-pond>
 ```
 
-The element fills its host, so set a height (and, if needed, width) in your own layout. It exposes its controller as the `.pond` property after connection. Removing the element releases its resources; reconnecting it creates a working pond again.
+The element fills its host, so set a height in your layout. Its `.pond` property exposes the controller after connection. Removing the element releases its resources; reconnecting creates a fresh pond.
 
-### Attributes
+### Settings
 
-| Attribute | Values | Default | Meaning |
-| --- | --- | --- | --- |
-| `environment` | `midnight`, `rain`, `dusk` | `midnight` | Water and ambient effect preset. |
-| `speed` | number from `0.25` to `2.5` | `1.35` | Swimming speed. |
-| `fish-count` | integer from `1` to `16` | `7` | Number of koi. |
-| `lilies` | `true`, `false` | `true` | Show lily pads. |
-| `lotus` | `true`, `false` | `true` | Show the lotus. |
-| `detail` | `fine`, `balanced` | `fine` | Rendering detail setting. |
-| `paused` | `true`, `false` | `false` | Start or keep the animation paused. |
-| `interactive` | `true`, `false` | `true` | Enable pointer and keyboard pond interaction. |
+The public configuration keys and defaults are:
 
-Boolean attributes are explicit string values: use `lilies="false"` to turn lilies off. Omitting an attribute uses its default. Invalid settings are rejected rather than partially applied.
+| Key | Default | Accepted values |
+| --- | --- | --- |
+| `environment` | `zen` | `zen`, `moonlight`, `autumn`, `sakura`; legacy ids `midnight`, `rain`, `dusk` are accepted |
+| `fishCount` | `12` | integer from `1` to `30` |
+| `speed` | `1.35` | finite number from `0.1` to `3` |
+| `fishSize` | `1` | finite number from `0.5` to `1.8` |
+| `varieties` | `['kohaku', 'sanke', 'ogon', 'shusui']` | nonempty unique list from those four ids |
+| `behavior` | `wander` | `wander`, `school`, `circle` |
+| `waterColor` | `null` | `null` for preset water, or a six-digit hex color such as `#174b55` |
+| `lilyDensity` | `0.7` | finite number from `0` to `1` |
+| `lotusCount` | `2` | integer from `0` to `6` |
+| `particleDensity` | `0.45` | finite number from `0` to `1` |
+| `rippleIntensity` | `1` | finite number from `0` to `2` |
+| `timeOfDay` | `auto` | `auto` or a finite hour from `0` to `24` |
+| `seed` | `2026` | integer from `0` to `4294967295` |
+| `lilies` | `true` | boolean; retained for v0.1 compatibility |
+| `lotus` | `true` | boolean; retained for v0.1 compatibility |
+| `detail` | `fine` | `fine`, `balanced` |
+| `paused` | `false` | boolean |
+| `interactive` | `true` | boolean |
 
-The pond pauses when hidden or offscreen. If the operating system requests reduced motion, it starts paused; the user can still choose to play it.
+Custom-element attributes use kebab case for multiword names (`fish-count`, `fish-size`, `water-color`, `lily-density`, `lotus-count`, `particle-density`, `ripple-intensity`, `time-of-day`). Boolean values are written explicitly, for example `interactive="false"`. Use the controller for array-valued `varieties`. Invalid settings are rejected atomically.
+
+The canonical scene choices are Zen Garden (`zen`), Moonlight (`moonlight`), Autumn (`autumn`) and Sakura Spring (`sakura`). The older ids remain accepted for configuration compatibility and are not additional preset choices.
 
 ## Canvas controller
 
-Use the ESM build with a canvas you create and size yourself:
+Use the ESM build with a canvas that your application creates and sizes:
 
 ```js
-import { createKoiPond } from './dist/koi-pond.js';
+import { createKoiPond } from '@dhruvil-codes/koi-pond';
 
 const canvas = document.querySelector('#pond');
-const pond = createKoiPond(canvas, { environment: 'dusk', fishCount: 5 });
+const pond = createKoiPond(canvas, { environment: 'sakura', fishCount: 8 });
 
 pond.feed(0.5, 0.5);
-// When the host no longer needs this canvas:
+// Dispose when the canvas leaves the page:
 pond.destroy();
 ```
 
-The canvas must already have a CSS size; the controller observes it and scales the drawing surface. Coordinates passed to `feed` and `ripple` are normalized from `0` to `1` across the canvas. Out-of-range finite coordinates are clamped; nonfinite coordinates throw.
+The canvas must already have a CSS size. The controller observes its size and scales the drawing surface. Coordinates passed to `feed` and `ripple` are normalized from `0` to `1`; finite out-of-range coordinates are clamped.
 
 ### Controller methods
 
-- `play()` and `pause()` control animation; `toggle()` switches between them.
-- `reset()` resets the pond scene.
-- `setOptions(partial)` updates supported settings. Invalid options are rejected without applying only part of the update.
+- `play()`, `pause()` and `toggle()` control animation.
+- `reset()` restarts motion while keeping the current settings.
+- `setOptions(partial)` validates and applies a partial settings update atomically.
+- `getConfig()` returns a cloned, normalized settings object.
+- `setConfig(stringOrObject)` replaces settings from an options object, serialized JSON string, or versioned configuration envelope.
+- `resetToDefaults()` restores `DEFAULT_OPTIONS`.
+- `randomize(seed?)` generates a reproducible settings set; passing the same seed produces the same settings.
+- `serialize()` returns the current options in the versioned JSON format.
 - `feed(x, y)` adds food at normalized coordinates.
 - `ripple(x, y, strength?)` adds a ripple at normalized coordinates.
 - `getState()` returns a snapshot of current options and `paused`, `foodCount`, `eaten` and `destroyed` state. It is not a live mutable model.
-- `exportPNG()` returns a PNG data URL for the current pond image.
-- `destroy()` stops animation and releases listeners and observers. Call it when disposing of a manually managed canvas.
+- `exportPNG()` returns a PNG data URL of the current pond image.
+- `destroy()` stops animation and releases listeners and observers. Call it when disposing a manually managed canvas.
 
-## Events
+Environment-only setting changes preserve existing fish objects and their positions, spine points, speeds and kinds, as well as food and simulation time. Population changes retain surviving fish. `reset()` keeps settings; use `resetToDefaults()` to restore defaults.
 
-User-visible pond changes emit `pondchange` from the canvas. It bubbles and is composed, so a listener can observe changes across component boundaries:
+### Configuration helpers
 
 ```js
-document.querySelector('koi-pond').addEventListener('pondchange', (event) => {
-  console.log(event.detail);
-});
+import {
+  DEFAULT_OPTIONS,
+  VARIETIES,
+  serializeConfig,
+  parseConfig,
+  randomizeConfig,
+} from '@dhruvil-codes/koi-pond';
+
+const json = serializeConfig({ environment: 'autumn', seed: 42 });
+const config = parseConfig(json);
+const repeatable = randomizeConfig(42);
 ```
 
-Invalid attributes leave the active controller unchanged and emit a `ponderror` event whose detail contains a `message`. Fixing invalid initial attributes allows the element to start.
+`serializeConfig(options)` returns JSON in the versioned form `{ "version": 1, "options": { ... } }`. `parseConfig(string)` accepts that envelope or a plain options object encoded as JSON, validates it, and returns normalized options. Unknown keys and invalid values are rejected; arrays are cloned. `DEFAULT_OPTIONS` and `VARIETIES` are exported constants.
 
-The event detail contains a state snapshot. Use `getState()` when you need the current snapshot at another time.
+## Events and lifecycle
+
+User-visible pond changes emit `pondchange` from the canvas. The event bubbles and is composed, so it can be observed across component boundaries. Invalid custom-element attributes emit `ponderror` with a `message`; the active controller is left unchanged.
+
+The pond pauses when hidden or offscreen. Reduced-motion preference starts it paused, with Play available. Browser-only APIs are deferred so importing the ESM entry in a server environment is safe; create the pond only in a browser lifecycle.
+
+Randomizing preserves the current pause/interaction mode. Reset to defaults respects the operating system's reduced-motion setting. Fine and balanced are requested quality levels; the renderer also bounds its column budget by fish count and size, and can reduce its refresh rate on slow hardware without changing simulation speed.
