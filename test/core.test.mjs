@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict'
+import { advance, configurePond, createPond, disturb, feed, renderPond, resizePond, validateOptions } from '../src/core.js'
+
+const pond = createPond(100, 38)
+assert.equal(pond.fish.length, 7)
+assert.equal(pond.fish.filter(f => f.scale < .4).length, 3, 'Three young koi join the four adults')
+assert.deepEqual(pond.options, { environment: 'midnight', speed: 1.35, fishCount: 7, lilies: true, lotus: true, detail: 'fine', paused: false, interactive: true })
+assert.throws(() => validateOptions({ speed: 3 }), /speed/)
+assert.throws(() => validateOptions({ speed: 1, unknown: true }), /Unknown option/)
+assert.throws(() => validateOptions({ lilies: 'no' }), /lilies/)
+const atomic = createPond()
+assert.throws(() => configurePond(atomic, { environment: 'rain', fishCount: 12, speed: Infinity }))
+assert.equal(atomic.options.environment, 'midnight')
+assert.equal(atomic.fish.length, 7)
+assert.deepEqual(renderPond(pond), renderPond(createPond(100, 38)))
+const stateful = createPond(100, 38)
+feed(stateful, 42, 19); advance(stateful, .4)
+const fishState = stateful.fish.map(f => [f.x, f.y]), foodState = structuredClone(stateful.food), timeState = stateful.time
+configurePond(stateful, { environment: 'rain', fishCount: 10 })
+assert.deepEqual(stateful.fish.slice(0, 7).map(f => [f.x, f.y]), fishState, 'Preset changes preserve existing fish positions')
+assert.deepEqual(stateful.food, foodState, 'Preset changes preserve food')
+assert.equal(stateful.time, timeState, 'Preset changes preserve simulation time')
+assert.equal(stateful.fish.length, 10)
+assert(stateful.fish.slice(4).every(f => f.scale < .4), 'New fish are deterministic young koi')
+configurePond(stateful, { fishCount: 3 })
+assert.equal(stateful.fish.length, 3)
+assert.deepEqual(stateful.fish.map(f => [f.x, f.y]), fishState.slice(0, 3), 'Shrinking removes trailing fish only')
+const regrown = createPond(100, 38, 1.6, { fishCount: 1 })
+configurePond(regrown, { fishCount: 16 })
+assert.equal(regrown.fish.filter(f => f.scale >= .4).length, 4, 'Regrowing restores the adult and young koi composition')
+for (const fish of regrown.fish) assert(Number.isFinite(fish.x + fish.y + fish.scale + fish.spine[21].x), 'Every added fish has valid geometry')
+const initial = pond.fish.map(f => [f.x, f.y])
+for (let i = 0; i < 24; i++) advance(pond, 1 / 24)
+assert(pond.fish.every((f, i) => Math.hypot(f.x - initial[i][0], f.y - initial[i][1]) > .5))
+const lowResolution = createPond(100, 38), highResolution = createPond(300, 114)
+for (let i = 0; i < 100; i++) { advance(lowResolution, .04); advance(highResolution, .04) }
+for (let i = 0; i < lowResolution.fish.length; i++) {
+  assert(Math.abs(lowResolution.fish[i].x / 100 - highResolution.fish[i].x / 300) < 1e-6)
+  assert(Math.abs(lowResolution.fish[i].y / 38 - highResolution.fish[i].y / 114) < 1e-6)
+}
+feed(pond, pond.fish[0].x + Math.cos(pond.fish[0].angle) * 8, pond.fish[0].y + Math.sin(pond.fish[0].angle) * 4)
+for (let i = 0; i < 24 * 12; i++) advance(pond, 1 / 24)
+assert(pond.eaten > 0, 'The koi must eat food they reach')
+const before = JSON.stringify(pond)
+pond.paused = true
+advance(pond, .1)
+pond.paused = false
+assert.equal(JSON.stringify(pond), before)
+for (let i = 0; i < 50; i++) { disturb(pond, i, i); feed(pond, i, i) }
+assert(pond.ripples.length <= 10 && pond.food.length <= 8)
+resizePond(pond, 52, 32)
+const frame = renderPond(pond)
+assert.equal(frame.chars.length, 52 * 32)
+assert(frame.chars.every(c => c >= 32 && c <= 126), 'Artwork uses only printable ASCII')
+for (let i = 0; i < 200; i++) advance(pond, .1)
+assert.equal(pond.food.length, 0)
+assert.equal(pond.ripples.length, 0)
+console.log('Simulation passed: swimming, seeking/eating food, pause, resize, ASCII output, bounded effects, and expiry.')
