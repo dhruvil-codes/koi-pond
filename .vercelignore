@@ -1,0 +1,7 @@
+.git/
+.local/
+.worktrees/
+node_modules/
+.env
+.env.*
+*.tgz

@@ -10,6 +10,8 @@ Open `index.html` directly in a modern browser. The committed page and classic b
 
 To serve it locally instead, run `npm start`. This starts a development server; it does not publish or deploy the site.
 
+For Vercel hosting and a custom subdomain, follow the [deployment guide](docs/DEPLOYMENT.md). The repository includes the required static build configuration.
+
 ## Install from GitHub
 
 The npm registry package has not been published. Install the versioned source package with npm:

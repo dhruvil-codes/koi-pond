@@ -1,5 +1,6 @@
 .local/
 .worktrees/
+.vercel/
 node_modules/
 coverage/
 *.tgz
