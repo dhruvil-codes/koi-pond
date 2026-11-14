@@ -5,24 +5,65 @@
   "type": "module",
   "license": "MIT",
   "author": "Dhruvil (https://github.com/dhruvil-codes)",
-  "repository": { "type": "git", "url": "https://github.com/dhruvil-codes/koi-pond.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dhruvil-codes/koi-pond.git"
+  },
   "homepage": "https://github.com/dhruvil-codes/koi-pond#readme",
   "bugs": "https://github.com/dhruvil-codes/koi-pond/issues",
-  "keywords": ["koi", "ascii", "canvas", "web-component", "pond", "animation"],
-  "engines": { "node": ">=22" },
+  "keywords": [
+    "koi",
+    "ascii",
+    "canvas",
+    "web-component",
+    "pond",
+    "animation"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "main": "./dist/koi-pond.js",
   "module": "./dist/koi-pond.js",
   "types": "./types/index.d.ts",
   "exports": {
-    ".": { "types": "./types/index.d.ts", "import": "./dist/koi-pond.js", "default": "./dist/koi-pond.js" },
+    ".": {
+      "types": "./types/index.d.ts",
+      "import": "./dist/koi-pond.js",
+      "default": "./dist/koi-pond.js"
+    },
     "./browser": "./dist/koi-pond.iife.js"
   },
-  "files": ["dist/", "types/", "index.html", "examples/", "docs/", "LICENSE", "README.md"],
+  "files": [
+    "dist/",
+    "types/",
+    "index.html",
+    "examples/",
+    "docs/",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node --test test/*.test.mjs integrations/t3/patch.test.mjs",
     "check:browser": "node scripts/browser-check.mjs",
     "start": "node scripts/serve.mjs",
     "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@cloudflare/kumo": "2.18.1",
+    "@phosphor-icons/react": "^2.1.10",
+    "@tailwindcss/cli": "^4.1.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "class-variance-authority": "^0.7.1",
+    "cn": "^0.5.2",
+    "esbuild": "^0.25.0",
+    "lucide-react": "^1.73.0",
+    "playwright": "^1.65.1",
+    "radix-ui": "^1.8.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.8.0"
   }
 }

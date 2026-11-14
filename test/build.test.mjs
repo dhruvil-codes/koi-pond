@@ -4,10 +4,14 @@ import { readFile } from 'node:fs/promises'
 import { Script, createContext } from 'node:vm'
 import { build } from '../scripts/build.mjs'
 
-test('standalone and browser distributions reproduce from source without dependencies or DOM globals', async () => {
+test('standalone and browser distributions reproduce with no runtime dependencies or DOM globals', async () => {
   const before = await readFile(new URL('../index.html', import.meta.url), 'utf8')
+  const esmBefore = await readFile(new URL('../dist/koi-pond.js', import.meta.url), 'utf8')
+  const classicBefore = await readFile(new URL('../dist/koi-pond.iife.js', import.meta.url), 'utf8')
   await build()
   assert.equal(await readFile(new URL('../index.html', import.meta.url), 'utf8'), before, 'Committed demo must match source')
+  assert.equal(await readFile(new URL('../dist/koi-pond.js', import.meta.url), 'utf8'), esmBefore, 'ESM library output must stay unchanged')
+  assert.equal(await readFile(new URL('../dist/koi-pond.iife.js', import.meta.url), 'utf8'), classicBefore, 'Classic library output must stay unchanged')
   const module = await import('../dist/koi-pond.js')
   assert.equal(typeof module.createKoiPond, 'function')
   assert.equal(typeof module.registerKoiPond, 'function')
@@ -17,11 +21,17 @@ test('standalone and browser distributions reproduce from source without depende
   const context = createContext({})
   new Script(await readFile(new URL('../dist/koi-pond.iife.js', import.meta.url), 'utf8')).runInContext(context)
   assert.equal(typeof context.KoiPond.createKoiPond, 'function')
-  assert(!before.includes('POND_BUNDLE') && !before.includes('DEMO_SCRIPT'))
+  const htmlMarkup = before.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+  assert(!['APP_STYLES', 'POND_BUNDLE', 'PLAYGROUND_BUNDLE'].some(marker => htmlMarkup.includes(`<!-- ${marker} -->`)))
+  assert.match(before, /<style>[\s\S]*?<\/style>/, 'Playground CSS must be embedded')
+  assert(before.includes('Playground third-party notices') && before.includes('2026 Cloudflare'), 'Standalone UI must retain third-party licenses')
+  assert(!/<link\b[^>]*rel=["']stylesheet/i.test(before), 'The standalone demo must not load an external stylesheet')
   const scripts = before.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi)
   assert(scripts && scripts.length === 2)
   assert(scripts.every(script => !/^<script[^>]*\bsrc=/i.test(script)), 'The standalone demo must have no external scripts')
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url)))
   assert.equal(Object.keys(pkg.dependencies || {}).length, 0)
+  assert(pkg.devDependencies.react && pkg.devDependencies['react-dom'] && pkg.devDependencies.esbuild)
+  assert(pkg.devDependencies['@cloudflare/kumo'] && pkg.devDependencies.playwright)
   assert.deepEqual(pkg.files, ['dist/', 'types/', 'index.html', 'examples/', 'docs/', 'LICENSE', 'README.md'])
 })

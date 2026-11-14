@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve Koi Pond. Keep changes focused and preserve the project's small, dependency-free browser footprint.
+Thanks for helping improve Koi Pond. Keep changes focused and preserve the embeddable library's small, dependency-free browser footprint.
 
 ## Before a change
 
@@ -11,17 +11,20 @@ Thanks for helping improve Koi Pond. Keep changes focused and preserve the proje
 
 ## Local checks
 
-With Node.js 22 or newer, install development dependencies if needed, then run:
+With Node.js 22 or newer, install the locked development dependencies, then run:
 
 ```sh
-npm install
+npm ci
 npm run build
 npm test
+npx tsc --noEmit
 ```
 
 Open `index.html` directly to check the offline playground. Test keyboard and pointer behavior where relevant, including touch scrolling and reduced-motion behavior. Keep checks deterministic and avoid adding dependencies without a clear need.
 
-For the browser fixture, run `npm run check:browser` and open `test/browser-check.html`. Its browser-console success message confirms custom-element controls, pointer filtering, PNG export, reconnects and layout. Test real touch gestures on hardware as well; synthetic events cannot verify the browser's native scrolling feel.
+For actual browser checks, install Playwright's Chromium once with `npx playwright install chromium`, then run `npm run check:browser`. To use an existing Chrome installation, set `PLAYWRIGHT_CHANNEL=chrome`. The script opens the standalone file offline, exercises the dock and controls, checks exact snippets and shared configurations, tests keyboard access and reduced motion, and checks six desktop/mobile viewport sizes for scrolling and clipped controls. Screenshots and results are saved under the ignored `.local/ui-check/` folder. Real touch hardware is still useful for checking native gesture feel.
+
+The playground UI lives in `demo/App.tsx` and `demo/styles.css`. Buttons use Cloudflare Kumo; control primitives are copied from ReUI's official Radix source with attribution. Build dependencies stay in `devDependencies`; do not import them into the `src/` library. Rebuild `index.html` after UI changes and preserve the third-party license notices.
 
 ## Pull requests
 

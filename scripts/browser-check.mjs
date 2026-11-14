@@ -1,61 +1,202 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import assert from 'node:assert/strict'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
+import { chromium } from 'playwright'
 
-const html = await readFile(new URL('../index.html', import.meta.url), 'utf8')
-const checks = `<script>
-(() => {
-  const assert=(value,message)=>{if(!value)throw Error(message)};
-  const canvas=document.getElementById('pond'),pond=canvas.pond;
-  assert(pond,'Playground mounts');
-  const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-  const config=()=>pond.getConfig();
-  const optionsFromCode=()=>{const text=document.getElementById('embed-code').textContent;const start=text.indexOf('const config = ')+15;return JSON.parse(text.slice(start,text.indexOf(';',start)))};
-  const input=(id,value,type='input')=>{const node=document.getElementById(id);node.value=value;node.dispatchEvent(new Event(type,{bubbles:true}))};
-  const rect=canvas.getBoundingClientRect();
-  const pointer=(type,extra={})=>canvas.dispatchEvent(new PointerEvent(type,{pointerId:1,pointerType:'mouse',isPrimary:true,button:0,clientX:rect.left+rect.width*.5,clientY:rect.top+rect.height*.5,...extra}));
-  pointer('pointerdown');pointer('pointerup');assert(pond.getState().foodCount===1,'Tap feeds');
-  pointer('pointerdown');pointer('pointermove',{clientX:rect.left+rect.width*.7});pointer('pointerup');
-  pointer('pointerdown',{pointerType:'touch'});pointer('pointermove',{pointerType:'touch',clientY:rect.top+rect.height*.8});pointer('pointercancel');pointer('pointerup');
-  pointer('pointerdown',{button:2});pointer('pointerup',{button:2});assert(pond.getState().foodCount===1,'Drag, scroll, cancellation and secondary clicks do not feed');
-  const paused=config().paused;document.getElementById('pause').click();assert(config().paused!==paused,'Pause control');
-  canvas.dispatchEvent(new KeyboardEvent('keydown',{key:' ',cancelable:true}));assert(config().paused===paused,'Keyboard pause');
-  canvas.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',cancelable:true}));canvas.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',cancelable:true}));assert(pond.getState().foodCount===2,'Keyboard feed');
-  input('fish',30);input('speed',3);input('fish-size',1.8);input('behavior','school','change');
-  assert(config().fishCount===30&&config().speed===3&&config().fishSize===1.8&&config().behavior==='school','All fish controls');
-  for(const box of document.querySelectorAll('[name=variety]')){box.checked=box.value==='shusui';box.dispatchEvent(new Event('change'))}
-  assert(equal(config().varieties,['shusui']),'Fish variety selection');
-  const last=document.querySelector('[name=variety]:checked');last.checked=false;last.dispatchEvent(new Event('change'));assert(last.checked&&config().varieties.length===1,'At least one variety stays selected');
-  const fishSettings={fishCount:config().fishCount,speed:config().speed,fishSize:config().fishSize,varieties:config().varieties,behavior:config().behavior,seed:config().seed};
-  for(const id of ['zen','moonlight','autumn','sakura']){
-    document.querySelector('[data-environment="'+id+'"]').click();assert(config().environment===id,'Environment '+id);
-    for(const [key,value] of Object.entries(fishSettings))assert(equal(config()[key],value),'Environment preserves '+key);
-    assert(pond.getState().foodCount===2,'Environment preserves food');
+const pageURL = new URL('../index.html', import.meta.url).href
+const proof = new URL('../.local/ui-check/', import.meta.url)
+await mkdir(proof, { recursive: true })
+const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}) })
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'no-preference' })
+await context.setOffline(true)
+await context.addInitScript(() => {
+  window.__copies = []
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => window.__copies.push(text) } })
+})
+const page = await context.newPage()
+page.setDefaultTimeout(8000)
+const errors = []
+page.on('pageerror', error => errors.push(error.message))
+const results = []
+const check = (condition, message) => { assert(condition, message); results.push(message) }
+const config = () => page.evaluate(() => document.querySelector('#pond').pond.getConfig())
+const select = async (label, option) => { await page.getByRole('combobox', { name: label, exact: true }).click(); await page.getByRole('option', { name: option, exact: true }).click() }
+const slider = async (label, key, expected, keypress = 'End') => {
+  await page.getByRole('slider', { name: label, exact: true }).press(keypress)
+  await page.waitForFunction(([key, value]) => document.querySelector('#pond').pond.getConfig()[key] === value, [key, expected])
+}
+const open = async id => { if (await page.locator('#' + id).getAttribute('data-state') !== 'open') await page.locator('#' + id).click(); await page.locator('.pond-popover[data-state=open]').waitFor() }
+const close = async () => { await page.keyboard.press('Escape'); await page.locator('.pond-popover').waitFor({ state: 'detached' }) }
+const lastCopy = () => page.evaluate(() => window.__copies.at(-1))
+const noScroll = async label => {
+  const size = await page.evaluate(() => ({ width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight, x: scrollX, y: scrollY }))
+  check(size.scrollWidth <= size.width && size.scrollHeight <= size.height && !size.x && !size.y, label + ': no page scrolling')
+  const dock = await page.locator('.pond-dock').boundingBox()
+  check(dock && dock.x >= 0 && dock.x + dock.width <= size.width && dock.y >= 0 && dock.y + dock.height <= size.height, label + ': dock fits')
+}
+const panelFits = async label => {
+  const box = await page.locator('.pond-popover[data-state=open]').boundingBox()
+  const viewport = page.viewportSize()
+  check(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= viewport.width + 1 && box.y + box.height <= viewport.height + 1, label + ': panel fits viewport')
+  const scroll = await page.locator('.pond-popover[data-state=open]').evaluate(node => ({ client: node.clientHeight, scroll: node.scrollHeight }))
+  check(scroll.scroll <= scroll.client + 1, label + ': all controls visible without panel scrolling')
+}
+try {
+  await page.goto(pageURL)
+  await page.waitForFunction(() => document.querySelector('#pond')?.pond)
+  check(await page.locator('.topbar,.scene-name,.scene-seed,.developer,.inspector').count() === 0, 'Old headings and dashboard chrome removed')
+  const canvasSize = await page.locator('#pond').boundingBox()
+  check(canvasSize.width === 1440 && canvasSize.height === 900, 'Pond fills viewport')
+  await noScroll('Desktop')
+  await page.locator('#pause').click()
+  check((await config()).paused, 'Kumo pause button controls the engine')
+  await page.screenshot({ path: fileURLToPath(new URL('desktop.png', proof)) })
+  await page.locator('#pond').focus(); await page.keyboard.press('Space')
+  check(!(await config()).paused, 'Space resumes pond')
+  await page.keyboard.press('Enter')
+  check(await page.evaluate(() => document.querySelector('#pond').pond.getState().foodCount) === 1, 'Keyboard feeding works')
+  await page.locator('#pond').click({ position: { x: 600, y: 300 } })
+  check(await page.evaluate(() => document.querySelector('#pond').pond.getState().foodCount) >= 2, 'Pond tap feeds the koi')
+  const filteredPointers = await page.evaluate(() => {
+    const canvas = document.querySelector('#pond'), pond = canvas.pond, before = pond.getState().foodCount
+    const pointer = (type, extra = {}) => canvas.dispatchEvent(new PointerEvent(type, { pointerId: 1, pointerType: 'mouse', isPrimary: true, button: 0, clientX: 100, clientY: 100, ...extra }))
+    pointer('pointerdown'); pointer('pointermove', { clientX: 200 }); pointer('pointerup')
+    pointer('pointerdown', { pointerType: 'touch' }); pointer('pointermove', { pointerType: 'touch', clientY: 200 }); pointer('pointercancel'); pointer('pointerup')
+    pointer('pointerdown', { button: 2 }); pointer('pointerup', { button: 2 })
+    return before === pond.getState().foodCount
+  })
+  check(filteredPointers, 'Dragging, cancelled touch and secondary clicks do not feed')
+  check(await page.evaluate(() => {
+    const element = document.createElement('koi-pond'); element.style.height = '100px'; element.setAttribute('paused', 'true'); element.setAttribute('varieties', 'ogon,shusui'); element.setAttribute('lotus-count', '4'); document.body.append(element)
+    const accepted = element.pond && element.pond.getConfig().lotusCount === 4 && element.pond.getConfig().varieties.join() === 'ogon,shusui'
+    const first = element.pond; element.remove(); const destroyed = first.getState().destroyed
+    document.body.append(element); const reconnected = element.pond && !element.pond.getState().destroyed; element.remove()
+    return accepted && destroyed && reconnected
+  }), 'Custom elements accept settings, release resources, and reconnect')
+
+  await open('controls')
+  check(await page.getByRole('tab', { name: 'Koi', exact: true }).evaluate(node => !!document.getElementById(node.getAttribute('aria-controls'))), 'Settings tab is linked to its panel')
+  await slider('Fish count', 'fishCount', 30)
+  await slider('Swim speed', 'speed', 3)
+  await slider('Fish size', 'fishSize', 1.8)
+  await select('Movement', 'Swim together')
+  for (const name of ['Kohaku', 'Sanke', 'Shusui']) await page.getByRole('button', { name, exact: true }).click()
+  const fish = await config()
+  check(fish.behavior === 'school' && fish.varieties.length === 1 && fish.varieties[0] === 'ogon', 'Movement and variety controls update immediately')
+  check(await page.getByRole('button', { name: 'Ogon', exact: true }).isDisabled(), 'At least one variety stays selected')
+  await page.screenshot({ path: fileURLToPath(new URL('desktop-controls.png', proof)) })
+  await close()
+  check(await page.locator('#controls').evaluate(node => node === document.activeElement), 'Escape restores focus to dock trigger')
+  for (const environment of ['moonlight', 'autumn', 'sakura', 'zen']) {
+    await open('environments'); await page.locator('[data-environment=' + environment + ']').click()
+    const next = await config()
+    check(next.environment === environment && ['fishCount', 'speed', 'fishSize', 'behavior', 'varieties'].every(key => JSON.stringify(next[key]) === JSON.stringify(fish[key])), environment + ': environment preserves fish settings')
   }
-  document.querySelector('[data-panel=water]').click();assert(!document.getElementById('panel-water').hidden,'Water inspector tab');
-  input('water-color','#275b69');input('lily-density',0);input('lotus-count',6);input('ripple-intensity',2);
-  assert(config().waterColor==='#275b69'&&config().lilyDensity===0&&config().lotusCount===6&&config().rippleIntensity===2,'Water and plant controls');
-  document.getElementById('preset-water').click();assert(config().waterColor===null,'Preset water restores');
-  document.querySelector('[data-panel=atmosphere]').click();input('particle-density',1);input('time-of-day','18','change');input('seed',42,'change');input('detail','balanced','change');
-  assert(config().particleDensity===1&&config().timeOfDay===18&&config().seed===42&&config().detail==='balanced','Atmosphere controls');
-  for(const target of ['javascript','html','react','next']){
-    document.querySelector('[data-target="'+target+'"]').click();assert(equal(optionsFromCode(),config()),target+' code reflects every setting exactly');
+
+  await open('controls'); await page.getByRole('tab', { name: 'Water', exact: true }).click()
+  await slider('Lily pads', 'lilyDensity', 1)
+  await slider('Lotus flowers', 'lotusCount', 6)
+  await slider('Ripples', 'rippleIntensity', 2)
+  await page.locator('#water-color').evaluate(node => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(node, '#123456')
+    node.dispatchEvent(new Event('input', { bubbles: true }))
+    node.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  await page.waitForFunction(() => document.querySelector('#pond').pond.getConfig().waterColor === '#123456')
+  await page.getByRole('switch', { name: 'Lily pads', exact: true }).click()
+  await page.getByRole('switch', { name: 'Lotus flowers', exact: true }).click()
+  check(!(await config()).lilies && !(await config()).lotus, 'Vegetation switches work')
+  await page.locator('#preset-water').click()
+  check((await config()).waterColor === null, 'Preset water color restores')
+  await page.getByRole('tab', { name: 'Atmosphere', exact: true }).click()
+  await slider('Floating particles', 'particleDensity', 1)
+  await select('Time of day', 'Dusk')
+  await page.locator('#seed').fill('42')
+  await select('Render quality', 'Balanced')
+  await page.getByRole('switch', { name: 'Pointer interactions', exact: true }).click()
+  const atmosphere = await config()
+  check(atmosphere.timeOfDay === 18 && atmosphere.seed === 42 && atmosphere.detail === 'balanced' && !atmosphere.interactive, 'Time, seed, detail and interaction controls work')
+  await page.locator('#new-seed').click()
+  check((await config()).seed !== 42, 'New seed button works')
+  await close()
+
+  await open('embed')
+  for (const target of ['javascript', 'html', 'react', 'next']) {
+    await page.locator('[data-target=' + target + ']').click()
+    const exact = await page.evaluate(() => {
+      const text = document.querySelector('#embed-code').textContent
+      const start = text.indexOf('const config = ') + 15
+      return JSON.stringify(JSON.parse(text.slice(start, text.indexOf(';', start)))) === JSON.stringify(document.querySelector('#pond').pond.getConfig())
+    })
+    check(exact, target + ': code matches current settings exactly')
   }
-  let copies=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{copies.push(text)}}});
-  document.getElementById('copy-install').click();assert(copies.at(-1).includes('#v0.2.0'),'Real versioned npm command');
-  document.getElementById('copy-code').click();assert(copies.at(-1).includes("'use client'"),'Copy chosen integration target');
-  document.getElementById('copy-json').click();assert(equal(KoiPond.parseConfig(copies.at(-1)),config()),'Copy JSON exact');
-  document.getElementById('share').click();const shared=new URL(copies.at(-1));assert(equal(KoiPond.parseConfig(new URLSearchParams(shared.hash.slice(1)).get('pond')),config()),'Shared URL exact');
-  const before=JSON.stringify(config());input('import-config','{');document.getElementById('apply-config').click();assert(JSON.stringify(config())===before,'Invalid import atomic');
-  const imported=KoiPond.randomizeConfig(987);input('import-config',KoiPond.serializeConfig(imported));document.getElementById('apply-config').click();assert(equal(config(),imported),'Valid import exact');
-  document.getElementById('randomize').click();assert(config().seed!==987,'Randomize changes scene');
-  document.getElementById('reset').click();assert(equal(config(),KoiPond.validateOptions()),'Reset to defaults');
-  const other=document.createElement('koi-pond');other.style.height='100px';other.setAttribute('paused','true');other.setAttribute('varieties','ogon,shusui');other.setAttribute('lotus-count','4');document.body.append(other);
-  assert(other.pond&&equal(other.pond.getConfig().varieties,['ogon','shusui'])&&other.pond.getConfig().lotusCount===4,'Custom element accepts full settings');
-  const original=other.pond;other.remove();assert(original.getState().destroyed,'Disconnect releases controller');document.body.append(other);assert(other.pond&&!other.pond.getState().destroyed,'Reconnect');other.remove();
-  assert(pond.exportPNG().length>1000,'PNG has rendered artwork');
-  document.querySelector('[data-panel=fish]').click();document.querySelector('[data-target=javascript]').click();
-  assert(document.documentElement.scrollWidth<=innerWidth,'No horizontal overflow');
-  console.info('Playground browser checks passed: every live control, environment invariants, tap/drag/touch/keyboard, exact JS/HTML/React/Next outputs, clipboard/share/import, randomize/default reset, custom elements/reconnect and responsive layout.');
-})();
-</script>`
-await writeFile(new URL('../test/browser-check.html', import.meta.url), html.replace('</body>', checks + '</body>'))
-console.log('Built test/browser-check.html for actual browser verification.')
+  await page.locator('#copy-install').click()
+  check((await lastCopy()).includes('#v0.2.0'), 'Install command copies actual published Git tag')
+  await page.locator('#copy-code').click()
+  check((await lastCopy()).includes("'use client'"), 'Copy code uses selected framework')
+  await page.locator('[data-target=json]').click(); await page.locator('#copy-json').click()
+  const jsonCopy = await lastCopy()
+  check(JSON.stringify(JSON.parse(jsonCopy).options) === JSON.stringify(await config()), 'JSON export exact')
+  await page.locator('#share').click()
+  const shareLink = new URL(await lastCopy())
+  check(JSON.stringify(JSON.parse(new URLSearchParams(shareLink.hash.slice(1)).get('pond')).options) === JSON.stringify(await config()), 'Share link exact')
+  check(shareLink.origin === 'https://koi-pond.bydhruvil.in', 'Offline share links use public custom domain')
+  const sharedPage = await context.newPage()
+  await sharedPage.goto(pageURL + shareLink.hash)
+  await sharedPage.waitForFunction(() => document.querySelector('#pond')?.pond)
+  check(JSON.stringify(await sharedPage.evaluate(() => document.querySelector('#pond').pond.getConfig())) === JSON.stringify(await config()), 'Opening a shared URL restores exact settings')
+  const hashConfig = await sharedPage.evaluate(() => window.KoiPond.serializeConfig(window.KoiPond.randomizeConfig(314)))
+  await sharedPage.evaluate(value => { location.hash = 'pond=' + encodeURIComponent(value) }, hashConfig)
+  await sharedPage.waitForFunction(() => document.querySelector('#pond').pond.getConfig().seed === 314)
+  check(JSON.stringify(await sharedPage.evaluate(() => document.querySelector('#pond').pond.getConfig())) === JSON.stringify(JSON.parse(hashConfig).options), 'Hash changes restore settings without remounting')
+  await sharedPage.close()
+  await page.locator('[data-target=import]').click()
+  const beforeInvalid = JSON.stringify(await config())
+  await page.locator('#import-config').fill('{'); await page.locator('#apply-config').click()
+  check(await page.locator('#import-error').isVisible() && JSON.stringify(await config()) === beforeInvalid, 'Invalid import displays error without changing pond')
+  const imported = await page.evaluate(() => window.KoiPond.serializeConfig(window.KoiPond.randomizeConfig(987)))
+  await page.locator('#import-config').fill(imported); await page.locator('#apply-config').click()
+  check(JSON.stringify(await config()) === JSON.stringify(JSON.parse(imported).options), 'Valid import restores configuration')
+  await close()
+  await page.locator('#randomize').click()
+  check((await config()).seed !== 987, 'Randomize button works')
+  await open('more')
+  const download = page.waitForEvent('download')
+  await page.locator('#snapshot').click()
+  check((await download).suggestedFilename().endsWith('.png'), 'Save image downloads PNG')
+  await open('more'); await page.locator('#reset').click()
+  check(await page.evaluate(() => JSON.stringify(document.querySelector('#pond').pond.getConfig()) === JSON.stringify(window.KoiPond.validateOptions())), 'Reset restores defaults')
+
+  await open('embed'); await page.locator('[data-target=javascript]').click()
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Denied') } } }))
+  await page.locator('#copy-code').click()
+  check(await page.locator('#copy-fallback').evaluate(node => node === document.activeElement && node.selectionEnd === node.value.length), 'Clipboard denial offers selected manual copy')
+  await close()
+
+  for (const [label, width, height] of [['Desktop',1440,900], ['Laptop',1280,720], ['Mobile',390,844], ['Small mobile',320,568], ['Landscape',568,320], ['Tablet',768,1024]]) {
+    await page.setViewportSize({ width, height })
+    await noScroll(label)
+    await open('environments'); await panelFits(label + ' scenes'); await close()
+    await open('controls')
+    for (const category of ['Koi','Water','Atmosphere']) { await page.getByRole('tab', { name: category, exact: true }).click(); await panelFits(label + ' ' + category) }
+    if (label === 'Mobile') await page.screenshot({ path: fileURLToPath(new URL('mobile-controls.png', proof)) })
+    await close()
+    await open('more'); await panelFits(label + ' actions'); await close()
+    await open('embed'); await page.locator('[data-target=javascript]').click(); await panelFits(label + ' embed'); await close()
+    if (label === 'Mobile') await page.screenshot({ path: fileURLToPath(new URL('mobile.png', proof)) })
+  }
+  const reduced = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
+  await reduced.setOffline(true)
+  const reducedPage = await reduced.newPage()
+  await reducedPage.goto(pageURL)
+  await reducedPage.waitForFunction(() => document.querySelector('#pond')?.pond)
+  check(await reducedPage.evaluate(() => document.querySelector('#pond').pond.getConfig().paused), 'Reduced motion starts pond paused')
+  await reducedPage.close(); await reduced.close()
+  check(errors.length === 0, 'No browser runtime errors: ' + errors.join('; '))
+  await writeFile(new URL('results.json', proof), JSON.stringify({ checks: results.length, results, errors }, null, 2))
+  console.log(`Passed ${results.length} browser checks: Kumo actions, ReUI controls, exact copy/share/import, offline embedding, keyboard, reduced motion and six viewport layouts.`)
+  console.log('Visual checks saved in .local/ui-check/')
+} catch (error) {
+  await page.screenshot({ path: fileURLToPath(new URL('failure.png', proof)) }).catch(() => {})
+  throw error
+} finally { await context.close(); await browser.close() }

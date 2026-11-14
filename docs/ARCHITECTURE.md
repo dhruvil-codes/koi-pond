@@ -30,12 +30,16 @@ flowchart LR
 | `src/pond.js` | Canvas sizing, painting, pointer and keyboard input, visibility handling, lifecycle and public controller. |
 | `src/element.js` | Custom-element attributes, local shadow styles, mount/disconnect and error events. |
 | `types/index.d.ts` | Public TypeScript contracts and custom-element/event types. |
-| `demo/` | Playground controls, live configuration, import/share links and output snippets. |
+| `demo/App.tsx` and `demo/styles.css` | Fullscreen React playground, bottom dock, live controls, import/share links and developer outputs. |
+| `demo/components/ui/` | ReUI Radix primitives with upstream MIT attribution; actions use the installed Cloudflare Kumo Button. |
+| `demo/snippets.js` | Framework integration snippets and the versioned GitHub installation command. |
 | `examples/` | Direct HTML embed, decorative background and React lifecycle examples. |
-| `scripts/build.mjs` | Dependency-free ESM/classic bundling and inline standalone playground generation. |
+| `scripts/build.mjs` | ESM/classic library assembly and self-contained playground generation with esbuild and Tailwind. |
 | `dist/` and `index.html` | Committed browser outputs for immediate use; rebuild from source instead of hand-editing. |
 | `test/` | Simulation, environment, artwork, configuration, lifecycle and build checks. |
 | `integrations/t3/` | Isolated experimental Windows adapter and its version guards. |
+
+The library outputs contain only the pond engine and browser controller. Playground-only React and component packages are development dependencies; their minified code and styles are inlined into `index.html`. The page has no external scripts, styles, fonts or images and can be opened offline. Each settings panel uses the same controller; opening controls or changing the environment does not recreate the pond. The browser check opens this file directly, without a server.
 
 ## State and interaction
 

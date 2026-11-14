@@ -1,0 +1,23 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "radix-nova",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "demo/styles.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "aliases": {
+    "components": "@/demo/components",
+    "utils": "@/demo/lib/utils",
+    "ui": "@/demo/components/ui",
+    "lib": "@/demo/lib",
+    "hooks": "@/demo/hooks"
+  },
+  "registries": {
+    "@reui": "https://reui.io/r/{style}/{name}.json"
+  }
+}

@@ -4,9 +4,9 @@ A dependency-free ASCII koi pond with four procedural environments. Use the stan
 
 ## Try the playground
 
-Visit the [live playground](https://koi-pond-gamma.vercel.app/) to customize and share a pond.
+Visit the [live playground](https://koi-pond.bydhruvil.in/) to customize and share a pond.
 
-Open `index.html` directly in a modern browser. The committed page and classic build work offline. The playground lets you switch between Zen, Moonlight, Autumn and Sakura, tune the pond, reset or randomize settings, and copy a reproducible configuration or share link.
+Open `index.html` directly in a modern browser. The committed page and classic build work offline. The pond fills the screen; its bottom dock opens scene selection, live controls and copyable integration code. Switch between Zen, Moonlight, Autumn and Sakura, tune the pond, reset or randomize settings, and share a reproducible configuration.
 
 To serve it locally instead, run `npm start`. This starts a development server; it does not publish or deploy the site.
 
@@ -42,12 +42,14 @@ The public `serializeConfig(options)` function returns versioned JSON with norma
 Use Node.js 22 or newer to rebuild or run project checks:
 
 ```sh
-npm install
+npm ci
 npm run build
 npm test
 ```
 
-There are no runtime dependencies. The optional T3 adapter remains an isolated experiment for the inspected Windows app version; it is not part of the pond runtime.
+The embeddable library has no runtime dependencies. The playground uses React, Cloudflare Kumo buttons and ReUI controls, bundled into the standalone page at build time. These packages are development dependencies and are not imported by the library. See [Contributing](CONTRIBUTING.md) for browser checks and [third-party notices](docs/THIRD-PARTY-NOTICES.md) for UI licenses.
+
+The optional T3 adapter remains an isolated experiment for the inspected Windows app version; it is not part of the pond runtime.
 
 ## License
 
