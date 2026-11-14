@@ -4,7 +4,7 @@ A dependency-free ASCII koi pond with four procedural environments. Use the stan
 
 ## Try the playground
 
-Visit the [live playground](https://dhruvil-codes.github.io/koi-pond/) to customize and share a pond.
+Visit the [live playground](https://koi-pond-gamma.vercel.app/) to customize and share a pond.
 
 Open `index.html` directly in a modern browser. The committed page and classic build work offline. The playground lets you switch between Zen, Moonlight, Autumn and Sakura, tune the pond, reset or randomize settings, and copy a reproducible configuration or share link.
 
