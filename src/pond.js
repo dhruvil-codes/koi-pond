@@ -21,7 +21,7 @@ export function createKoiPond(canvas, options = {}) {
   const saved = Object.fromEntries(['tabindex', 'role', 'aria-label'].map(key => [key, canvas.getAttribute(key)]))
   const originalTouchAction = canvas.style.touchAction
   const originalCursor = canvas.style.cursor
-  canvas.style.touchAction = 'pan-y'
+  canvas.style.touchAction = originalTouchAction === 'none' ? 'none' : 'pan-y'
 
   const alive = () => { if (destroyed) throw new Error('This pond has been destroyed') }
   const config = () => Object.freeze({ ...pond.options, varieties: Object.freeze([...pond.options.varieties]), paused: pond.paused })
@@ -62,7 +62,11 @@ export function createKoiPond(canvas, options = {}) {
         ctx.globalAlpha = 1
       }
       if (frame.coverage[i] > 128) ctx.fillStyle = frame.colors[i] >= 91 ? 'rgba(0,0,0,.16)' : frame.colors[i] >= 83 ? 'rgba(12,35,44,.3)' : frame.colors[i] >= 59 ? 'rgba(74,27,48,.3)' : frame.colors[i] >= 45 ? 'rgba(5,22,12,.4)' : 'rgba(55,47,35,.28)'
-      if (frame.chars[i] !== 32) ctx.fillText(String.fromCharCode(frame.chars[i]), (x + .5) * cellX, (y + .5) * cellY)
+      if (frame.chars[i] !== 32) {
+        ctx.globalAlpha = frame.coverage[i] <= 128 ? frame.coverage[i] / 128 : 1
+        ctx.fillText(String.fromCharCode(frame.chars[i]), (x + .5) * cellX, (y + .5) * cellY)
+        ctx.globalAlpha = 1
+      }
     }
     paintedFrame = frame; paintedPalette = palette; paintedCursor = Boolean(keyboardCursor)
     if (keyboardCursor && pond.options.interactive) {
@@ -99,7 +103,7 @@ export function createKoiPond(canvas, options = {}) {
     const fine = pond.options.detail === 'fine'
     const workload = Math.max(1, pond.options.fishCount / 14) * Math.max(1, pond.options.fishSize) ** 2
     const maximum = Math.max(fine ? 180 : 140, Math.floor((fine ? 480 : 300) / Math.sqrt(workload)))
-    cellX = Math.max(fine ? 2.5 : 4, Math.min(fine ? 4 : 6, width / (fine ? 280 : 180)), width / maximum)
+    cellX = Math.max(fine ? 2.5 : 4, Math.min(fine ? 3 : 6, width / (fine ? 360 : 180)), width / maximum)
     cellY = cellX * 1.6
     canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr)
     paintedFrame = undefined; frameBudget = 1000 / 60; slowFrames = 0
@@ -142,7 +146,7 @@ export function createKoiPond(canvas, options = {}) {
     if (down && down.id !== event.pointerId) return
     const dx = down ? event.clientX - down.x : 0, dy = down ? event.clientY - down.y : 0
     if (down && Math.hypot(dx, dy) >= 6) down.moved = true
-    if (event.pointerType === 'touch' && (!down || Math.abs(dy) > Math.abs(dx))) return
+    if (event.pointerType === 'touch' && (!down || (canvas.style.touchAction !== 'none' && Math.abs(dy) > Math.abs(dx)))) return
     const p = point(event), now = win.performance.now()
     keyboardCursor = undefined
     const distance = lastPoint ? Math.hypot((p.x - lastPoint.x) * width, (p.y - lastPoint.y) * height) : 6

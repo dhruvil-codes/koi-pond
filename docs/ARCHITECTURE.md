@@ -23,10 +23,10 @@ flowchart LR
 | `src/config.js` | Defaults, atomic validation, cloned normalized settings, versioned JSON serialization/parsing and seeded randomization. |
 | `src/fish.js` | Fish creation, articulated steering, advancing, resizing and fish-only painting. |
 | `src/environment.js` | Procedural water, lighting, rocks, vegetation, blossoms, lilies, lotuses, particles and atmosphere. It does not own fish behavior or mutate fish. |
-| `src/environments.js` | Canonical preset metadata for Zen Garden, Moonlight, Autumn and Sakura Spring. |
+| `src/environments.js` | Canonical preset metadata for Zen Garden, Moonlight, Autumn, Sakura Spring and Daylight. |
 | `src/palette.js` | Stable fish and plant colors; the environment module appends its own scenery ramps. |
 | `src/math.js` | Shared clamp, wrap, hash and ramp helpers. |
-| `src/core.js` | Simulation orchestration and ordered back-environment, fish and foreground composition. No DOM. |
+| `src/core.js` | Simulation orchestration and ordered submerged environment, fish, surface, foreground and food composition. No DOM. |
 | `src/pond.js` | Canvas sizing, painting, pointer and keyboard input, visibility handling, lifecycle and public controller. |
 | `src/element.js` | Custom-element attributes, local shadow styles, mount/disconnect and error events. |
 | `types/index.d.ts` | Public TypeScript contracts and custom-element/event types. |
@@ -49,7 +49,9 @@ Options are normalized and validated as one change before they are applied. Envi
 
 Pointer movement creates ripples, while a tap feeds after pointer-up confirms it was not a drag. Keyboard controls act only while the pond has focus. The renderer pauses when hidden or offscreen and respects reduced-motion preference. Fine and balanced detail settings bound the character grid; actual rendering performance still depends on hardware and scene settings.
 
-Static water, rocks and vegetation are cached separately from fish. Dirty canvas cells redraw only when their character, material or coverage changes. Water material edges align to device pixels, while fish keep their fine character texture. Higher counts and sizes lower the grid ceiling; consistently slow frames can reduce the refresh rate to 30 Hz while elapsed-time steering preserves swimming speed.
+Static water, submerged stones, rocks and vegetation are cached separately from fish. Caustic filaments animate over the pond bed, followed by all fish shadows and depth-sorted koi, then surface ripples, floating vegetation and food. Rendering does not change fish state. Water clarity and light settings affect only painting. Scene thumbnails use paused instances of the public controller, created when the scene picker opens and destroyed when it closes.
+
+Dirty canvas cells redraw only when their character, material or coverage changes. Water material edges align to device pixels, while fish keep their fine character texture. Higher counts and sizes lower the grid ceiling; consistently slow frames can reduce the refresh rate to 30 Hz while elapsed-time steering preserves swimming speed.
 
 ## Extending it
 

@@ -26,6 +26,8 @@ The public configuration keys and defaults are:
 | `varieties` | `['kohaku', 'sanke', 'ogon', 'shusui']` | nonempty unique list from those four ids |
 | `behavior` | `wander` | `wander`, `school`, `circle` |
 | `waterColor` | `null` | `null` for preset water, or a six-digit hex color such as `#174b55` |
+| `waterClarity` | `0.8` | finite number from `0` (murky) to `1` (clear); affects submerged detail and fish shading |
+| `causticIntensity` | `0.65` | finite number from `0` to `1`; strength of moving underwater light |
 | `lilyDensity` | `0.7` | finite number from `0` to `1` |
 | `lotusCount` | `2` | integer from `0` to `6` |
 | `particleDensity` | `0.45` | finite number from `0` to `1` |
@@ -38,9 +40,11 @@ The public configuration keys and defaults are:
 | `paused` | `false` | boolean |
 | `interactive` | `true` | boolean |
 
-Custom-element attributes use kebab case for multiword names (`fish-count`, `fish-size`, `water-color`, `lily-density`, `lotus-count`, `particle-density`, `ripple-intensity`, `time-of-day`). Boolean values are written explicitly, for example `interactive="false"`. Use the controller for array-valued `varieties`. Invalid settings are rejected atomically.
+Custom-element attributes use kebab case for multiword names (`fish-count`, `fish-size`, `water-color`, `water-clarity`, `caustic-intensity`, `lily-density`, `lotus-count`, `particle-density`, `ripple-intensity`, `time-of-day`). Boolean values are written explicitly, for example `interactive="false"`. Use the controller for array-valued `varieties`. Invalid settings are rejected atomically.
 
 The canonical scene choices are Zen Garden (`zen`), Moonlight (`moonlight`), Autumn (`autumn`), Sakura Spring (`sakura`) and sunny Daylight (`daylight`). The older ids remain accepted for configuration compatibility and are not additional preset choices.
+
+The default touch policy allows vertical page scrolling in embeds. A full-screen canvas host can set `canvas.style.touchAction = 'none'` before mounting to support stirring in every direction. The playground uses this policy; the original inline style is restored on destruction.
 
 ## Canvas controller
 

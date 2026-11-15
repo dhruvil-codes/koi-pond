@@ -18,9 +18,9 @@ for (const { id } of ENVIRONMENTS) for (const [columns, rows] of [[120, 64], [28
   assert(cells.length >= 5, `${id} ${columns}x${rows}: food needs a visible multi-cell footprint`)
   assert(cells.every(i => after.coverage[i] >= 230 && after.colors[i] < after.palette.length), 'Food has opaque, valid warm/ivory ink above vegetation')
   assert(cells.some(i => after.colors[i] !== before.colors[i] || after.coverage[i] !== before.coverage[i]), 'Food must appear above the foreground')
-  pond.food = []
+  pond.food = []; pond.ripples = []
   const cleared = renderPond(pond)
-  assert.deepEqual(cleared, before, 'Removing food removes its entire visible footprint')
+  assert.deepEqual(cleared, before, 'Removing food and its tap ripple restores the underlying pond')
 }
 
 const cases = [
@@ -55,6 +55,7 @@ for (const scenario of cases) {
   }
   assert(eatenAt !== null && eatenAt < 17, `${scenario.name}: fish should reach and eat the pellet before expiry`)
   assert.equal(pond.food.length, 0, `${scenario.name}: eaten food disappears`)
+  assert(pond.ripples.some(ripple => ripple.kind === 'bite'), 'Eating creates a distinct short-lived bite event')
 }
 
 const equivalent = (columns, rows) => {

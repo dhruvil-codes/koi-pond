@@ -79,6 +79,7 @@ try {
   await page.locator('#pause').click()
   check((await config()).paused, 'Kumo pause button controls the engine')
   await page.screenshot({ path: fileURLToPath(new URL('desktop.png', proof)) })
+  console.log('Checking pond input and custom elements...')
   await page.locator('#pond').focus(); await page.keyboard.press('Space')
   check(!(await config()).paused, 'Space resumes pond')
   await page.keyboard.press('Enter')
@@ -95,13 +96,14 @@ try {
   })
   check(filteredPointers, 'Dragging, cancelled touch and secondary clicks do not feed')
   check(await page.evaluate(() => {
-    const element = document.createElement('koi-pond'); element.style.height = '100px'; element.setAttribute('paused', 'true'); element.setAttribute('varieties', 'ogon,shusui'); element.setAttribute('lotus-count', '4'); document.body.append(element)
-    const accepted = element.pond && element.pond.getConfig().lotusCount === 4 && element.pond.getConfig().varieties.join() === 'ogon,shusui'
+    const element = document.createElement('koi-pond'); element.style.height = '100px'; element.setAttribute('paused', 'true'); element.setAttribute('varieties', 'ogon,shusui'); element.setAttribute('lotus-count', '4'); element.setAttribute('water-clarity', '.4'); element.setAttribute('caustic-intensity', '.2'); document.body.append(element)
+    const accepted = element.pond && element.pond.getConfig().lotusCount === 4 && element.pond.getConfig().varieties.join() === 'ogon,shusui' && element.pond.getConfig().waterClarity === .4 && element.pond.getConfig().causticIntensity === .2
     const first = element.pond; element.remove(); const destroyed = first.getState().destroyed
     document.body.append(element); const reconnected = element.pond && !element.pond.getState().destroyed; element.remove()
     return accepted && destroyed && reconnected
   }), 'Custom elements accept settings, release resources, and reconnect')
 
+  console.log('Checking settings and scene previews...')
   await open('controls')
   check(await page.getByRole('tab', { name: 'Koi', exact: true }).evaluate(node => !!document.getElementById(node.getAttribute('aria-controls'))), 'Settings tab is linked to its panel')
   await slider('Fish count', 'fishCount', 30)
@@ -116,7 +118,14 @@ try {
   await close()
   check(await page.locator('#controls').evaluate(node => node === document.activeElement), 'Escape restores focus to dock trigger')
   for (const environment of ['moonlight', 'autumn', 'sakura', 'daylight', 'zen']) {
-    await open('environments'); await sceneButtonsFit('Selected ' + environment); await page.locator('[data-environment=' + environment + ']').click()
+    await open('environments'); await sceneButtonsFit('Selected ' + environment)
+    check(await page.locator('.scene-preview canvas').evaluateAll(nodes => nodes.length === 5 && nodes.every(node => {
+      const colors = node.getContext('2d').getImageData(0, 0, node.width, node.height).data
+      const unique = new Set()
+      for (let i = 0; i < colors.length; i += 4) unique.add([colors[i], colors[i + 1], colors[i + 2]].join(','))
+      return unique.size > 20 && node.tabIndex === -1
+    })), environment + ': five engine-rendered scene previews load offline without adding tab stops')
+    await page.locator('[data-environment=' + environment + ']').click()
     const next = await config()
     check(next.environment === environment && ['fishCount', 'speed', 'fishSize', 'behavior', 'varieties'].every(key => JSON.stringify(next[key]) === JSON.stringify(fish[key])), environment + ': environment preserves fish settings')
   }
@@ -125,6 +134,8 @@ try {
   await slider('Lily pads', 'lilyDensity', 1)
   await slider('Lotus flowers', 'lotusCount', 6)
   await slider('Ripples', 'rippleIntensity', 2)
+  await slider('Water clarity', 'waterClarity', 0, 'Home')
+  await slider('Light patterns', 'causticIntensity', 1)
   await page.locator('#water-color').evaluate(node => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(node, '#123456')
     node.dispatchEvent(new Event('input', { bubbles: true }))
@@ -148,8 +159,9 @@ try {
   check((await config()).seed !== 42, 'New seed button works')
   await close()
 
+  console.log('Checking exact embeds, share links and imports...')
   await open('embed')
-  check((await lastCopy()).includes('#v0.3.0'), 'Dock command action copies the install command directly')
+  check((await lastCopy()).includes('#v0.4.0'), 'Dock command action copies the install command directly')
   for (const target of ['javascript', 'html', 'react', 'next']) {
     await page.locator('[data-target=' + target + ']').click()
     const exact = await page.evaluate(() => {
@@ -160,7 +172,7 @@ try {
     check(exact, target + ': code matches current settings exactly')
   }
   await page.locator('#copy-install').click()
-  check((await lastCopy()).includes('#v0.3.0'), 'Install command copies actual published Git tag')
+  check((await lastCopy()).includes('#v0.4.0'), 'Install command copies actual published Git tag')
   await page.locator('#copy-code').click()
   check((await lastCopy()).includes("'use client'"), 'Copy code uses selected framework')
   await page.locator('[data-target=json]').click(); await page.locator('#copy-json').click()
@@ -189,6 +201,16 @@ try {
   await close()
   await page.locator('#randomize').click()
   check((await config()).seed !== 987, 'Randomize button works')
+  await open('more')
+  const beforeQuiet = await config()
+  await page.locator('#quiet-view').click()
+  check(!(await page.locator('.pond-dock').isVisible()) && await page.getByRole('button', { name: 'Show pond controls' }).isVisible(), 'Quiet view hides the dock and exposes an accessible restore control')
+  check(JSON.stringify(await config()) === JSON.stringify(beforeQuiet), 'Quiet view preserves the pond configuration')
+  await page.keyboard.press('Escape')
+  check(await page.locator('.pond-dock').isVisible(), 'Escape restores the dock from quiet view')
+  await open('more'); await page.locator('#quiet-view').click()
+  await page.getByRole('button', { name: 'Show pond controls' }).click()
+  check(await page.locator('.pond-dock').isVisible(), 'Quiet view also restores by pointer')
   await open('more')
   const download = page.waitForEvent('download')
   await page.locator('#snapshot').click()
@@ -224,6 +246,7 @@ try {
   await page.evaluate(() => document.querySelector('#pond').pond.resetToDefaults())
 
   for (const [label, width, height] of [['Desktop',1440,900], ['Laptop',1280,720], ['Mobile',390,844], ['Small mobile',320,568], ['Landscape',568,320], ['Tablet',768,1024]]) {
+    console.log(`Checking ${label.toLowerCase()} layout (${width} × ${height})...`)
     await page.setViewportSize({ width, height })
     await noScroll(label)
     await open('environments'); await panelFits(label + ' scenes'); await sceneButtonsFit(label); if (label === 'Desktop') await page.screenshot({ path: fileURLToPath(new URL('scenes.png', proof)) }); await close()

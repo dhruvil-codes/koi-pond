@@ -102,6 +102,22 @@ test('reduced motion, hidden windows and offscreen ponds stop their clocks and r
   pond.destroy()
 })
 
+test('fullscreen hosts can opt into vertical touch ripples without changing scrollable embeds', () => {
+  for (const touchAction of ['auto', 'none']) {
+    const b = browser(), canvas = b.canvas()
+    canvas.style.touchAction = touchAction
+    const pond = createKoiPond(canvas, { paused: true })
+    const before = canvas.ctx.rectCount
+    b.pointer(canvas, 'pointerdown', { pointerType: 'touch' })
+    b.pointer(canvas, 'pointermove', { pointerType: 'touch', clientY: 250 })
+    assert.equal(canvas.ctx.rectCount > before, touchAction === 'none', 'Vertical touch stirs only a host that owns the gesture')
+    b.pointer(canvas, 'pointerup', { pointerType: 'touch', clientY: 250 })
+    assert.equal(pond.getState().foodCount, 0, 'Stirring never feeds')
+    pond.destroy()
+    assert.equal(canvas.style.touchAction, touchAction, 'The host touch policy is restored')
+  }
+})
+
 test('full configurations, density budgets and stationary frames remain independent and predictable', () => {
   const b = browser(), canvas = b.canvas(), pond = createKoiPond(canvas)
   const initialRects = canvas.ctx.rectCount, initialFont = parseFloat(canvas.ctx.font.split(' ')[1])

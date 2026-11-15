@@ -1,11 +1,11 @@
-# Koi Pond 0.2
+# Koi Pond 0.4
 
 Koi Pond is a dependency-free interactive ASCII pond. It can run from the committed standalone HTML page, as a classic browser custom element, or through an ES module canvas controller. It makes no runtime network requests and uses no remote images or fonts.
 
-## 0.2 scope
+## Current scope
 
 - Five canonical procedural environments: `zen` (Zen Garden), `moonlight` (Moonlight), `autumn` (Autumn), `sakura` (Sakura Spring) and `daylight` (Daylight). The legacy ids `midnight`, `rain` and `dusk` remain accepted by configuration but are not shown as additional choices.
-- A layered renderer keeps fish and environment responsibilities separate. The renderer paints the environment back layer, fish, then environment foreground. Environment changes do not mutate or reset fish, positions, spine points, speeds, kinds, food or simulation time.
+- A layered renderer keeps fish and environment responsibilities separate. It paints submerged scenery and caustics, fish shadows, depth-sorted koi, surface ripples, floating vegetation and food. Environment changes do not mutate or reset fish, positions, spine points, speeds, kinds, food or simulation time.
 - A responsive playground provides environment selection, live pond settings, Reset to defaults and Randomize controls, copied install/configuration outputs and a share link.
 - Classic browser and ESM builds, TypeScript declarations, examples and standalone `index.html` are committed. The classic browser file and standalone page work offline. ESM imports defer browser APIs so server-side module loading is safe.
 - The optional T3 adapter remains an isolated experiment pinned to the inspected Windows version 0.1.9. It is not applied by ordinary project checks.
@@ -23,6 +23,8 @@ Koi Pond is a dependency-free interactive ASCII pond. It can run from the commit
 | `varieties` | `kohaku`, `sanke`, `ogon`, `shusui` | nonempty unique array containing only those ids |
 | `behavior` | `wander` | `wander`, `school`, `circle` |
 | `waterColor` | `null` | `null` for preset water, or `#rrggbb` |
+| `waterClarity` | `0.8` | finite number `0`–`1` |
+| `causticIntensity` | `0.65` | finite number `0`–`1` |
 | `lilyDensity` | `0.7` | finite number `0`–`1` |
 | `lotusCount` | `2` | integer `0`–`6` |
 | `particleDensity` | `0.45` | finite number `0`–`1` |
@@ -55,7 +57,7 @@ The pond pauses offscreen and while the document is hidden. Reduced-motion prefe
 
 ## Installation status
 
-The npm registry package has not been published. The documented source install is `npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.3.0`; create the `v0.3.0` tag when shipping. The import name after installing the repository package is `@dhruvil-codes/koi-pond`. Do not describe it as a registry-published package.
+The npm registry package has not been published. The documented source install is `npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.4.0`; create the `v0.4.0` tag when shipping. The import name after installing the repository package is `@dhruvil-codes/koi-pond`. Do not describe it as a registry-published package.
 
 ## Release checks
 

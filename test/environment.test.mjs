@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { createPond, configurePond, renderPond, resizePond, PALETTE } from '../src/core.js'
 import { ENVIRONMENTS, paletteForEnvironment, resolveEnvironment } from '../src/environments.js'
-import { paintEnvironmentFront } from '../src/environment.js'
+import { paintEnvironmentFront, paintEnvironmentSurface } from '../src/environment.js'
 
 assert.deepEqual(ENVIRONMENTS.map(({ id, label }) => [id, label]), [
   ['zen', 'Zen Garden'], ['moonlight', 'Moonlight'], ['autumn', 'Autumn'], ['sakura', 'Sakura Spring'], ['daylight', 'Daylight'],
@@ -83,11 +83,35 @@ for (let lotusCount = 0; lotusCount <= 6; lotusCount++) {
 }
 assert(lotusCounts.every((count, i) => !i || count > lotusCounts[i - 1]), 'Every requested lotus adds visible flower geometry')
 
-const quiet = barePond({ particleDensity: 0, rippleIntensity: 0 }), still = renderPond(quiet)
+const quiet = barePond({ particleDensity: 0, rippleIntensity: 0, causticIntensity: 0 }), still = renderPond(quiet)
 quiet.time = 18
 assert.deepEqual(renderPond(quiet), still, 'Zero particles and ripples remove Zen surface movement')
 configurePond(quiet, { particleDensity: 1 })
 assert.notDeepEqual(renderPond(quiet), still, 'Particles have a visible effect')
+const optics = createPond(280, 98, 1.6, { causticIntensity: 0, rippleIntensity: 0, particleDensity: 0 })
+const withoutLight = renderPond(optics), motion = structuredClone(optics.fish), opticalTime = optics.time
+configurePond(optics, { causticIntensity: 1 })
+const lit = renderPond(optics)
+assert(lit.colors.reduce((n, color, i) => n + (color !== withoutLight.colors[i] || lit.coverage[i] !== withoutLight.coverage[i]), 0) > 150, 'Light patterns affect a meaningful portion of the water')
+optics.time = 3
+assert.notDeepEqual(renderPond(optics).coverage, lit.coverage, 'Caustic filaments move over time')
+optics.time = opticalTime
+configurePond(optics, { waterClarity: 0 })
+assert.notDeepEqual(renderPond(optics), lit, 'Water clarity changes submerged detail and light')
+assert.deepEqual(optics.fish, motion, 'Water optics never alter fish state')
+configurePond(optics, { causticIntensity: 0 })
+const murky = renderPond(optics)
+optics.time = 9
+assert.deepEqual(renderPond(optics), murky, 'Disabling particles, ripples and caustics freezes Zen water')
+const touch = createPond(280, 98, 1.6, { rippleIntensity: 1 })
+touch.ripples = [{ x: 140, y: 45, age: .5, strength: 1, kind: 'touch' }]
+const rippleWrites = []
+paintEnvironmentSurface(touch, {}, (...cell) => rippleWrites.push(cell))
+touch.ripples[0].age = 4
+const fadedWrites = []
+paintEnvironmentSurface(touch, {}, (...cell) => fadedWrites.push(cell))
+const ringOpacity = writes => Math.max(...writes.filter(cell => cell[3] === 104).map(cell => cell[4]))
+assert(ringOpacity(fadedWrites) < ringOpacity(rippleWrites) / 4, 'Visitor ripples decay visibly before disappearing')
 for (const environment of ['moonlight', 'autumn', 'sakura', 'daylight']) {
   const pond = barePond({ environment, particleDensity: 0 }), frame = renderPond(pond), writes = []
   paintEnvironmentFront(pond, frame, (...cell) => writes.push(cell))

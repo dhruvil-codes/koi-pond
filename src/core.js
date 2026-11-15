@@ -1,5 +1,5 @@
 import { ENVIRONMENTS, paletteForEnvironment } from './environments.js'
-import { paintEnvironmentBack, paintEnvironmentFront } from './environment.js'
+import { paintEnvironmentBack, paintEnvironmentFront, paintEnvironmentSurface } from './environment.js'
 import { DEFAULT_OPTIONS, validateOptions } from './config.js'
 import { PALETTE } from './palette.js'
 import { clamp } from './math.js'
@@ -47,8 +47,8 @@ export function resizePond(pond, columns, rows) {
   for (const fish of pond.fish) fishFollowSpine(pond, fish)
 }
 
-export function disturb(pond, x, y, strength = 1) {
-  pond.ripples.push({ x: clamp(x, 0, pond.columns - 1), y: clamp(y, 0, pond.rows - 1), age: 0, strength })
+export function disturb(pond, x, y, strength = 1, kind = 'touch') {
+  pond.ripples.push({ x: clamp(x, 0, pond.columns - 1), y: clamp(y, 0, pond.rows - 1), age: 0, strength, kind })
   if (pond.ripples.length > 10) pond.ripples.shift()
 }
 
@@ -86,6 +86,7 @@ export function renderPond(pond) {
   }
   paintEnvironmentBack(pond, frame, put)
   fishPaint(pond, frame, put)
+  paintEnvironmentSurface(pond, frame, put)
   paintEnvironmentFront(pond, frame, put)
   // Food floats above the foreground pads and reeds. Keep its footprint visible
   // at small grids, while scaling gently with the larger detailed canvases.

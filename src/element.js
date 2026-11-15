@@ -1,7 +1,7 @@
 import { createKoiPond } from './pond.js'
 import { DEFAULT_OPTIONS } from './config.js'
 
-const attributes = { environment: 'environment', speed: 'speed', 'fish-count': 'fishCount', 'fish-size': 'fishSize', varieties: 'varieties', behavior: 'behavior', 'water-color': 'waterColor', 'lily-density': 'lilyDensity', 'lotus-count': 'lotusCount', 'particle-density': 'particleDensity', 'ripple-intensity': 'rippleIntensity', 'time-of-day': 'timeOfDay', seed: 'seed', lilies: 'lilies', lotus: 'lotus', detail: 'detail', paused: 'paused', interactive: 'interactive' }
+const attributes = { environment: 'environment', speed: 'speed', 'fish-count': 'fishCount', 'fish-size': 'fishSize', varieties: 'varieties', behavior: 'behavior', 'water-color': 'waterColor', 'water-clarity': 'waterClarity', 'caustic-intensity': 'causticIntensity', 'lily-density': 'lilyDensity', 'lotus-count': 'lotusCount', 'particle-density': 'particleDensity', 'ripple-intensity': 'rippleIntensity', 'time-of-day': 'timeOfDay', seed: 'seed', lilies: 'lilies', lotus: 'lotus', detail: 'detail', paused: 'paused', interactive: 'interactive' }
 const booleans = new Set(['lilies', 'lotus', 'paused', 'interactive'])
 const HTMLElementBase = globalThis.HTMLElement || class {}
 
@@ -15,7 +15,7 @@ function parseAttribute(name, value) {
   if (name === 'varieties') return value.split(',').map(item => item.trim())
   if (name === 'water-color' && value === 'auto') return null
   if (name === 'time-of-day' && value === 'auto') return 'auto'
-  if (['speed', 'fish-count', 'fish-size', 'lily-density', 'lotus-count', 'particle-density', 'ripple-intensity', 'time-of-day', 'seed'].includes(name)) return value.trim() === '' ? NaN : Number(value)
+  if (['speed', 'fish-count', 'fish-size', 'water-clarity', 'caustic-intensity', 'lily-density', 'lotus-count', 'particle-density', 'ripple-intensity', 'time-of-day', 'seed'].includes(name)) return value.trim() === '' ? NaN : Number(value)
   return value
 }
 

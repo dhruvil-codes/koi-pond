@@ -8,6 +8,8 @@ Visit the [live playground](https://koi-pond.bydhruvil.in/) to customize and sha
 
 Open `index.html` directly in a modern browser. The committed page and classic build work offline. The pond fills the screen; its bottom dock opens scene selection, live controls and copyable integration code. Switch between Zen, Moonlight, Autumn, Sakura and sunny Daylight, tune the pond, reset or randomize settings, and share a reproducible configuration.
 
+Koi swim at individual depths, cast submerged shadows and rise toward food. Moving light patterns, a textured pond bed, translucent fins and surface ripples add depth without external assets. Tune water clarity and light patterns under Water; choose Quiet view in More to hide the dock, then press Escape to restore it.
+
 To serve it locally instead, run `npm start`. This starts a development server; it does not publish or deploy the site.
 
 For Vercel hosting and a custom subdomain, follow the [deployment guide](docs/DEPLOYMENT.md). The repository includes the required static build configuration.
@@ -17,7 +19,7 @@ For Vercel hosting and a custom subdomain, follow the [deployment guide](docs/DE
 The npm registry package has not been published. Install the versioned source package with npm:
 
 ```sh
-npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.3.0
+npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.4.0
 ```
 
 The installed package name is `@dhruvil-codes/koi-pond`. The classic browser files are also committed in `dist/` for a direct download or local embed.

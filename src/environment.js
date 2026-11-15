@@ -181,6 +181,36 @@ function envReeds(pond, put, scene, seed) {
   }
 }
 
+function envPondBed(pond, put, seed, clarity) {
+  if (clarity === 0) return
+  const { columns, rows, aspect } = pond
+  // Small clusters leave the centre open; low-contrast material keeps them submerged.
+  for (let i = 0; i < 74; i++) {
+    const bank = i % 3, n = hash(i + seed, 531), m = hash(i + seed, 532)
+    const cx = columns * (bank === 0 ? .015 + n * .19 : bank === 1 ? .79 + n * .2 : .12 + n * .77)
+    const cy = rows * (bank === 0 ? .28 + m * .24 : bank === 1 ? .8 + m * .19 : .91 + m * .09)
+    const radius = Math.max(.8, columns * (.0022 + hash(i + seed, 533) * .006))
+    for (let y = Math.floor(cy - radius / aspect); y <= Math.ceil(cy + radius / aspect); y++) {
+      for (let x = Math.floor(cx - radius); x <= Math.ceil(cx + radius); x++) {
+        const u = (x - cx) / radius, v = (y - cy) * aspect / radius
+        if (u * u + v * v > 1) continue
+        const light = clamp(.42 - u * .19 - v * .24 + n * .12, 0, 1)
+        put(x, y, n > .6 ? ':' : '.', 93 + Math.floor(light * 7), Math.round(110 + clarity * 75))
+      }
+    }
+  }
+  for (let i = 0; i < 18; i++) {
+    const n = hash(i + seed, 812), cx = columns * (i % 2 ? .91 + n * .08 : .015 + n * .065)
+    const cy = rows * (.47 + hash(i + seed, 813) * .44), length = columns * (.018 + n * .025)
+    for (let blade = -1; blade <= 1; blade++) {
+      for (let s = 0; s < length; s += .7) {
+        const t = s / length, x = cx + blade * length * .23 * t + Math.sin(t * 2.7 + n * 6) * length * .12
+        put(x, cy - s / aspect, blade < 0 ? '\\' : '/', 94 + Math.floor(t * 6), Math.round((95 + t * 65) * clarity))
+      }
+    }
+  }
+}
+
 function envBuild(pond, key) {
   const { columns, rows, aspect } = pond, options = pond.options || {}, scene = resolveEnvironment(options.environment || 'zen')
   const seed = (options.seed ?? 2026) >>> 0, fine = options.detail !== 'balanced', total = columns * rows
@@ -196,17 +226,20 @@ function envBuild(pond, key) {
     const bend = Math.sin(y * .07 + seed % 11) * 1.9, sy = Math.sin(y * .11), cy = Math.cos(y * .11)
     for (let x = 0; x < columns; x++) {
       const waves = xWaves[x], coarse = waves[0] * cy + waves[2] * sy + Math.sin(y * .15 + waves[1] * 1.3)
-      const grain = hash(Math.floor(x / 3) + seed, Math.floor(y / 2)), light = clamp(.36 + coarse * .15 + grain * .13, .05, .95)
+      const grain = hash(Math.floor(x / 3) + seed, Math.floor(y / 2))
+      const shallow = Math.max(0, 1 - Math.hypot((x / columns - .5) * 1.3, (y / rows - .48) * .9))
+      const light = clamp(.39 + coarse * .105 + grain * .045 - shallow * .08, .05, .95)
       // Quiet solid material carries the water's depth; actual ink follows a few caustic contours.
       backPut(x, y, ' ', 91 + Math.floor(light * 14), 90 + Math.round(light * 105))
       const contour = Math.sin(x * .055 + y * .105 + bend + waves[0] * 1.8)
-      if (contour > .957 && grain > .24) backPut(x, y, hash(x, y) > .65 ? '-' : '.', 98 + Math.floor(light * 6), 150)
+      if (contour > .978 && grain > .34) backPut(x, y, hash(x, y) > .65 ? '-' : '.', 97 + Math.floor(light * 5), 130)
       if (scene === 'daylight' && fine && x % 3 === 0 && y % 2 === 0 && contour > .83 && hash(x + seed, y + 53) > .72) {
         backPut(x, y, '.', 166 + Math.floor(hash(x, y + seed) * 5), 82)
       }
       if (fine && x % 3 === 0 && y % 2 === 0 && grain > .65) shimmer.push([x, y, x * .027 + y * .09 + grain * 5])
     }
   }
+  envPondBed(pond, backPut, seed, options.waterClarity ?? .8)
   // Submerged bank shadows sit beneath the rock geometry and remain out of the fish layer.
   for (const [cx, cy, rx, ry] of [[-.01, .44, .10, .10], [.96, 1.01, .21, .19]]) {
     for (let y = Math.max(0, Math.floor((cy - ry) * rows)); y < Math.min(rows, Math.ceil((cy + ry) * rows)); y++) for (let x = Math.max(0, Math.floor((cx - rx) * columns)); x < Math.min(columns, Math.ceil((cx + rx) * columns)); x++) {
@@ -233,24 +266,51 @@ function envBuild(pond, key) {
   for (let i = 0; i < flowerCount; i++) envDrawLotus(still, frontPut, envFlowerLayout[i])
   const frontCells = []
   for (let i = 0; i < total; i++) if (front.coverage[i] || front.chars[i] !== 32) frontCells.push(i)
-  return { key, back, front, frontCells, shimmer }
+  const causticX = Array.from({ length: columns }, (_, x) => {
+    const phase = x / columns * 64, bend = Math.sin(x / columns * 35 + seed % 13)
+    return [Math.sin(phase), Math.cos(phase), Math.sin(bend), Math.cos(bend)]
+  })
+  return { key, back, front, frontCells, shimmer, causticX }
 }
 
 function envGet(pond) {
   const options = pond.options || {}
-  const key = [pond.columns, pond.rows, pond.aspect, resolveEnvironment(options.environment || 'zen'), options.seed ?? 2026, options.detail, options.lilies, options.lilyDensity ?? .7, options.lotus, options.lotusCount ?? 2].join('|')
+  const key = [pond.columns, pond.rows, pond.aspect, resolveEnvironment(options.environment || 'zen'), options.seed ?? 2026, options.detail, options.waterClarity ?? .8, options.lilies, options.lilyDensity ?? .7, options.lotus, options.lotusCount ?? 2].join('|')
   let cached = envCache.get(pond)
   if (!cached || cached.key !== key) { cached = envBuild(pond, key); envCache.set(pond, cached) }
   return cached
 }
 
 function envRing(pond, put, cx, cy, radius, color, strength = 1) {
-  if (radius < .2) return
+  if (radius < .2 || strength < .005) return
   const segments = Math.max(12, Math.ceil(radius * Math.PI * 2 / .85))
   for (let i = 0; i < segments; i++) {
     const angle = i / segments * Math.PI * 2
-    if (hash(i, Math.floor(radius * 3)) < .14) continue
-    put(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius / pond.aspect, '.', color, Math.round(90 + 70 * Math.min(1, strength)))
+    if (hash(Math.floor(angle * 16), 721) < .08) continue
+    put(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius / pond.aspect, Math.abs(Math.sin(angle)) > .7 ? '-' : '.', color, Math.round(clamp(strength, 0, 1) * 190))
+  }
+}
+
+function envCaustics(pond, cached, put, scene) {
+  const { columns, rows, time, options } = pond
+  const intensity = options.causticIntensity ?? .65, clarity = options.waterClarity ?? .8
+  if (!intensity || !clarity) return
+  const light = options.timeOfDay === 'auto' ? (scene === 'moonlight' ? .28 : scene === 'daylight' ? 1 : .65)
+    : .2 + .8 * Math.max(0, Math.sin((options.timeOfDay - 6) / 12 * Math.PI))
+  const strength = intensity * clarity * light
+  const step = options.detail === 'balanced' ? 2 : 1, flow = time * .23
+  for (let y = 0; y < rows; y += step) {
+    const py = y / rows * 36, wave = Math.sin(py * .7 + flow) * 1.4
+    const sinWave = Math.sin(wave + flow * .4), cosWave = Math.cos(wave + flow * .4)
+    const sinY = Math.sin(py - flow * .7), cosY = Math.cos(py - flow * .7)
+    for (let x = 0; x < columns; x += step) {
+      const phases = cached.causticX[x]
+      const field = phases[0] * cosWave + phases[1] * sinWave + sinY * phases[3] + cosY * phases[2]
+      const edge = Math.max(0, 1 - Math.abs(field - .35) / .13)
+      if (edge < .14) continue
+      const brightness = edge * edge * strength
+      put(x, y, brightness > .5 ? '-' : '.', 101 + Math.floor(brightness * 5), Math.round(65 + brightness * 115))
+    }
   }
 }
 
@@ -293,25 +353,43 @@ function envReflection(pond, put, scene) {
 export function paintEnvironmentBack(pond, frame, put) {
   const cached = envGet(pond), time = pond.time || 0, options = pond.options || {}, scene = resolveEnvironment(options.environment || 'zen')
   frame.chars.set(cached.back.chars); frame.colors.set(cached.back.colors); frame.coverage.set(cached.back.coverage)
+  envCaustics(pond, cached, put, scene)
   const intensity = options.rippleIntensity ?? 1
   if (intensity > 0) {
     for (const [x, y, phase] of cached.shimmer) {
       const light = Math.sin(time * .24 + phase)
       if (light > .94) put(x + Math.sin(time * .08 + phase) * .6, y, '.', 100 + Math.floor((light - .94) * 60), 65)
     }
-    // Wide, broken surface rings echo the reference without covering its open swimming area.
-    for (let i = 0; i < 3; i++) {
-      const pulse = ((time * .009 + i * .19) % .72), radius = pond.columns * (.11 + pulse * .37)
-      envRing(pond, put, pond.columns * [.4, .73, .16][i], pond.rows * [.71, .78, .91][i], radius, 102 + Math.floor(intensity), intensity * .45)
-    }
-    for (const ripple of pond.ripples || []) {
-      const radius = ripple.age * pond.columns * .078, strength = (ripple.strength ?? 1) * intensity
-      const color = ripple.age < .8 && strength > .8 ? 10 : ripple.age < 2 ? 3 : ripple.age < 3.5 ? 2 : 1
-      if (ripple.age > .04) envRing(pond, put, ripple.x, ripple.y, radius, color, strength)
-      if (ripple.age > .3) envRing(pond, put, ripple.x, ripple.y, radius * .72, ripple.age < 2 ? 2 : 1, strength * .7)
-    }
   }
   envReflection(pond, put, scene)
+}
+
+export function paintEnvironmentSurface(pond, frame, put) {
+  const intensity = pond.options.rippleIntensity ?? 1
+  if (!intensity) return
+  // Ambient droplets are spaced far apart so the water never becomes a target pattern.
+  for (let i = 0; i < 2; i++) {
+    const age = (pond.time + i * 7.3) % 17
+    if (age > 3.8) continue
+    const cycle = Math.floor((pond.time + i * 7.3) / 17), seed = pond.options.seed ?? 2026
+    const x = pond.columns * (.2 + hash(cycle + seed, i + 864) * .62), y = pond.rows * (.25 + hash(cycle + seed, i + 865) * .55)
+    envRing(pond, put, x, y, (age + .1) * pond.columns * .026, 102, .22 * intensity * (1 - age / 3.8))
+  }
+  for (const ripple of pond.ripples) {
+    const bite = ripple.kind === 'bite', age = ripple.age, life = bite ? 1.4 : 4.5
+    if (age >= life) continue
+    const fade = (1 - age / life) ** 1.7, strength = (ripple.strength ?? 1) * intensity * fade
+    const radius = Math.max(.8, age * pond.columns * (bite ? .027 : .078))
+    envRing(pond, put, ripple.x, ripple.y, radius, 104, strength)
+    if (age > .16 && !bite) envRing(pond, put, ripple.x, ripple.y, radius * .71, 101, strength * .45)
+    if (age < .65) {
+      for (let i = 0; i < (bite ? 5 : 3); i++) {
+        const angle = i * 2.4 + .6, distance = (.4 + age * (bite ? 5 : 3)) * pond.columns / 280
+        put(ripple.x + Math.cos(angle) * distance, ripple.y + Math.sin(angle) * distance / pond.aspect,
+          bite ? 'o' : '.', bite ? 22 : 106, Math.round((1 - age / .65) * strength * 235))
+      }
+    }
+  }
 }
 
 export function paintEnvironmentFront(pond, frame, put) {

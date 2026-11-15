@@ -1,5 +1,5 @@
 export const VARIETIES = Object.freeze(['kohaku', 'sanke', 'ogon', 'shusui'])
-export const DEFAULT_OPTIONS = Object.freeze({ environment: 'zen', fishCount: 12, speed: 1.35, fishSize: 1, varieties: VARIETIES, behavior: 'wander', waterColor: null, lilyDensity: .7, lotusCount: 2, particleDensity: .45, rippleIntensity: 1, timeOfDay: 'auto', seed: 2026, lilies: true, lotus: true, detail: 'fine', paused: false, interactive: true })
+export const DEFAULT_OPTIONS = Object.freeze({ environment: 'zen', fishCount: 12, speed: 1.35, fishSize: 1, varieties: VARIETIES, behavior: 'wander', waterColor: null, waterClarity: .8, causticIntensity: .65, lilyDensity: .7, lotusCount: 2, particleDensity: .45, rippleIntensity: 1, timeOfDay: 'auto', seed: 2026, lilies: true, lotus: true, detail: 'fine', paused: false, interactive: true })
 const optionKeys = new Set(Object.keys(DEFAULT_OPTIONS))
 const configEnvironments = ['zen', 'moonlight', 'autumn', 'sakura', 'daylight', 'midnight', 'rain', 'dusk']
 
@@ -14,6 +14,7 @@ export function validateOptions(partial = {}, current = DEFAULT_OPTIONS) {
     if (!Number.isFinite(next[key]) || next[key] < low || next[key] > high || (integer && !Number.isInteger(next[key]))) throw new RangeError(`${key} must be ${integer ? 'an integer' : 'a finite number'} from ${low} to ${high}`)
   }
   range('fishCount', 1, 30, true); range('speed', .1, 3); range('fishSize', .5, 1.8)
+  range('waterClarity', 0, 1); range('causticIntensity', 0, 1)
   range('lilyDensity', 0, 1); range('lotusCount', 0, 6, true); range('particleDensity', 0, 1); range('rippleIntensity', 0, 2); range('seed', 0, 4294967295, true)
   if (!Array.isArray(next.varieties) || !next.varieties.length || next.varieties.some(id => !VARIETIES.includes(id)) || new Set(next.varieties).size !== next.varieties.length) throw new TypeError('Choose one or more unique fish varieties')
   next.varieties = [...next.varieties]
@@ -48,5 +49,5 @@ export function randomizeConfig(seed = Math.floor(Math.random() * 4294967296)) {
   const choose = values => values[Math.floor(next() * values.length)]
   const round = n => Math.round(n * 100) / 100
   const varieties = VARIETIES.filter(() => next() > .25)
-  return validateOptions({ environment: choose(configEnvironments.slice(0, 5)), fishCount: 6 + Math.floor(next() * 15), speed: round(.5 + next() * 1.4), fishSize: round(.75 + next() * .55), varieties: varieties.length ? varieties : ['kohaku'], behavior: choose(['wander', 'school', 'circle']), lilyDensity: round(.25 + next() * .65), lotusCount: 1 + Math.floor(next() * 4), particleDensity: round(.2 + next() * .6), rippleIntensity: round(.5 + next()), seed })
+  return validateOptions({ environment: choose(configEnvironments.slice(0, 5)), fishCount: 6 + Math.floor(next() * 15), speed: round(.5 + next() * 1.4), fishSize: round(.75 + next() * .55), varieties: varieties.length ? varieties : ['kohaku'], behavior: choose(['wander', 'school', 'circle']), lilyDensity: round(.25 + next() * .65), lotusCount: 1 + Math.floor(next() * 4), particleDensity: round(.2 + next() * .6), rippleIntensity: round(.5 + next()), waterClarity: round(.55 + next() * .45), causticIntensity: round(.2 + next() * .7), seed })
 }

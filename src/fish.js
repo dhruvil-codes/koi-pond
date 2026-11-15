@@ -36,6 +36,8 @@ export function fishInitialize(pond, fish) {
   fish.turnVelocity = 0
   fish.currentSpeed = fish.speed * pond.columns / 100 * pond.options.speed
   fish.swimPhase = fish.phase
+  fish.depth = fishCruiseDepth(fish, 0)
+  fish.tailEffort = .3
   fish.spine = [{ x: fish.x, y: fish.y }]
   const gap = fishLength(pond, fish) / (FISH_JOINTS - 1)
   for (let j = 1; j < FISH_JOINTS; j++) {
@@ -46,6 +48,11 @@ export function fishInitialize(pond, fish) {
 }
 
 export const fishLength = (pond, fish) => 25 * fish.scale * pond.options.fishSize * pond.columns / 112
+
+function fishCruiseDepth(fish, time) {
+  return clamp(.46 + .24 * Math.sin(time * .16 + fish.phase * 1.37)
+    + .08 * Math.sin(time * .073 + fish.phase * 2.11), .12, .82)
+}
 
 export function fishFollowSpine(pond, fish) {
   const gap = fishLength(pond, fish) / (FISH_JOINTS - 1)
@@ -114,14 +121,21 @@ export function fishAdvance(pond, dt, disturb) {
     const arrival = pellet ? clamp(nearest / (length * 1.2), .12, 1) * clamp((1 + Math.cos(error)) * .5, .12, 1) : 1
     const cruise = fish.speed * pond.columns / 100 * pond.options.speed
     const speedTarget = pellet ? Math.max(cruise * arrival, pond.columns * .001)
-      : cruise * (.88 + .08 * Math.sin(pond.time * .6 + fish.phase))
+      : cruise * (.88 + .16 * Math.sin(pond.time * .6 + fish.phase))
+    const effort = clamp(.12 + .28 * speedTarget / (cruise || 1) + .85 * Math.abs(speedTarget - fish.currentSpeed) / (cruise || 1)
+      + .3 * Math.abs(fish.turnVelocity), .2, 1)
+    fish.tailEffort += (effort - fish.tailEffort) * (1 - Math.exp(-dt * 3.5))
     fish.currentSpeed += (speedTarget - fish.currentSpeed) * (1 - Math.exp(-dt * (pellet ? 3.5 : 1.8)))
+    const approach = pellet ? 1 - clamp(nearest / (pond.columns * .24), 0, 1) : 0
+    const depthTarget = fishCruiseDepth(fish, pond.time) * (1 - approach) + .045 * approach
+    fish.depth += (depthTarget - fish.depth) * (1 - Math.exp(-dt * (pellet ? 2.2 : .65)))
+    fish.depth = clamp(fish.depth, 0, 1)
     fish.x = clamp(fish.x + Math.cos(fish.angle) * fish.currentSpeed * dt, .5, pond.columns - .5)
     fish.y = clamp(fish.y + Math.sin(fish.angle) * fish.currentSpeed * dt / pond.aspect, .5, pond.rows - .5)
     // Only a head at the pellet can eat it; distance is measured in aspect-corrected cells.
     if (pellet && Math.hypot(pellet.x - fish.x, (pellet.y - fish.y) * pond.aspect) < Math.max(.8, length * .075)) {
       pond.food.splice(pond.food.indexOf(pellet), 1); pond.eaten++
-      disturb(pond, pellet.x, pellet.y, .3)
+      disturb(pond, pellet.x, pellet.y, .7, 'bite')
     }
     fish.swimPhase += dt * (1.5 + fish.currentSpeed / pond.columns * 38)
     fishFollowSpine(pond, fish)
@@ -133,12 +147,15 @@ function fishAnimatedSpine(pond, fish) {
   return fish.spine.map((p, i, nodes) => {
     const t = i / (FISH_JOINTS - 1), previous = nodes[Math.max(0, i - 1)], next = nodes[Math.min(FISH_JOINTS - 1, i + 1)]
     const dx = previous.x - next.x, dy = (previous.y - next.y) * pond.aspect, d = Math.hypot(dx, dy) || 1
-    const wave = Math.sin(fish.swimPhase - t * 4.6) * length * .024 * t ** 1.8
+    const wave = Math.sin(fish.swimPhase - t * 4.6) * length * (.022 + .029 * fish.tailEffort) * t ** 1.8
     return { x: p.x - dy / d * wave, y: p.y + dx / d * wave / pond.aspect }
   })
 }
 
 function fishDrawWake(pond, fish, frame, put) {
+  const clarity = pond.options.waterClarity ?? .8
+  const surface = (1 - fish.depth) * clamp(fish.currentSpeed / (fish.speed * pond.columns / 100 * pond.options.speed || 1), 0, 1.3)
+  if (surface < .12) return
   const length = fishLength(pond, fish)
   for (let i = 0; i < 19; i++) {
     if (i % 3 === 1) continue
@@ -150,18 +167,60 @@ function fishDrawWake(pond, fish, frame, put) {
     for (const side of [-1, 1]) {
       const px = Math.round(x - dy / distance * spread * side), py = Math.round(y + dx / distance * spread * side / pond.aspect)
       if (px < 0 || px >= frame.columns || py < 0 || py >= frame.rows) continue
-      const index = py * frame.columns + px
-      put(px, py, '.', frame.colors[index], frame.coverage[index])
+      const pulse = .7 + .3 * Math.sin(fish.swimPhase - i * .65)
+      put(px, py, i % 4 === 0 ? ',' : '.', 100 + (i % 3), Math.round((26 + 42 * clarity) * surface * pulse))
     }
   }
 }
 
+function fishDrawShadow(pond, fish, frame, mask) {
+  const { columns, rows } = frame, { aspect } = pond
+  const scale = fish.scale * pond.options.fishSize * columns / 112
+  const clarity = pond.options.waterClarity ?? .8
+  const depth = fish.depth
+  const offsetX = (.65 + depth * 3.8) * scale
+  const offsetY = (.45 + depth * 2.8) * scale / aspect
+  const shade = (1.2 + depth * 3.4) * (.35 + clarity * .65)
+  const radius = Math.max(.55, scale * 2.35)
+  // Sparse capsules follow the articulated body, with the tail tapering out.
+  for (let j = 0; j < FISH_JOINTS - 5; j++) {
+    const a = fish.spine[j], b = fish.spine[j + 1]
+    const taper = Math.sin((j + 1) / (FISH_JOINTS - 4) * Math.PI) ** .65
+    const r = Math.max(.45, radius * taper)
+    const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, (b.y - a.y) * aspect) / .85))
+    for (let step = 0; step <= steps; step++) {
+      const at = step / steps, cx = a.x + (b.x - a.x) * at + offsetX, cy = a.y + (b.y - a.y) * at + offsetY
+      const x0 = Math.max(0, Math.ceil(cx - r)), x1 = Math.min(columns - 1, Math.floor(cx + r))
+      const y0 = Math.max(0, Math.ceil(cy - r / aspect)), y1 = Math.min(rows - 1, Math.floor(cy + r / aspect))
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const d = Math.hypot(x - cx, (y - cy) * aspect) / r
+        if (d <= 1) {
+          const index = y * columns + x
+          mask[index] = Math.max(mask[index], Math.round(shade * (1 - d * d)))
+        }
+      }
+    }
+  }
+}
+
+const fishShadowMasks = new WeakMap()
 export function fishPaint(pond, frame, put) {
   const { columns: cols, rows, aspect } = pond
   let distances = new Float64Array(0), fractions = new Float64Array(0), closest = new Uint8Array(0)
+  let shadow = fishShadowMasks.get(pond)
+  if (!shadow || shadow.length !== cols * rows) { shadow = new Uint8Array(cols * rows); fishShadowMasks.set(pond, shadow) }
+  shadow.fill(0)
+  for (const fish of pond.fish) fishDrawShadow(pond, fish, frame, shadow)
+  // Shade each cell once, so overlapping capsules do not accumulate hard black seams.
+  for (let i = 0; i < shadow.length; i++) if (shadow[i]) {
+    const background = frame.colors?.[i] || 98
+    if (background < 91 || background > 106) continue
+    put(i % cols, Math.floor(i / cols), '.', Math.max(91, background - shadow[i]), frame.coverage?.[i] || 170)
+  }
   for (const fish of pond.fish) fishDrawWake(pond, fish, frame, put)
-  for (const fish of pond.fish) {
+  for (const fish of pond.fish.slice().sort((a, b) => b.depth - a.depth)) {
     const spine = fishAnimatedSpine(pond, fish), s = fish.scale * pond.options.fishSize * cols / 112
+    const bodyCoverage = Math.round(244 - fish.depth * (8 + 65 * (1 - (pond.options.waterClarity ?? .8))))
     const segments = spine.slice(0, -1).map((a, j) => {
       const b = spine[j + 1], dx = b.x - a.x, dy = (b.y - a.y) * aspect
       return { x: a.x, y: a.y, dx, dy, inverseSquared: 1 / (dx * dx + dy * dy || 1), angle: Math.atan2(-dy, -dx) }
@@ -230,7 +289,7 @@ export function fishPaint(pond, frame, put) {
         if (gill) light *= .64
         const glyph = eye ? 'o' : mouth ? '=' : gill ? ')' : ridge ? '^' : scaleSeam ? (cross < .5 ? '(' : ')')
           : FISH_DENSITY[Math.floor(clamp(.15 + light * .8, 0, 1) * (FISH_DENSITY.length - 1))]
-        put(x, y, glyph, eye || mouth ? 39 : family + Math.floor(light * (family === 39 ? 5 : 7)), eye ? 255 : 242)
+        put(x, y, glyph, eye || mouth ? 39 : family + Math.floor(light * (family === 39 ? 5 : 7)), eye ? 255 : bodyCoverage)
         if (eyeDistance >= .31 && eyeDistance < .49) put(x, y, '.', 15, 225)
       } else if (u > 5.7 && u < 7.5 && Math.abs(Math.abs(v) - (2.5 - (u - 5.7) * .65)) < .18) {
         put(x, y, v > 0 ? '/' : '\\', 15, 110)
@@ -239,7 +298,8 @@ export function fishPaint(pond, frame, put) {
         const edge = 3 + 2.5 * Math.sin((u + 2.8) / 6.8 * Math.PI) * flutter
         if (Math.abs(v) < edge) {
           const ray = Math.abs(Math.sin(Math.atan2(v, u - 4.5) * 26)), rim = edge - Math.abs(v) < .24
-          put(x, y, rim ? '.' : ray > .78 ? '/' : ':', 39 + Math.floor((rim ? .65 : .15 + ray * .7) * 5), rim ? 100 : 90 + Math.round(ray * 90))
+          const finFamily = fish.variety === 'ogon' ? 31 : fish.variety === 'shusui' ? 83 : 15
+          put(x, y, rim ? '.' : ray > .78 ? '/' : ':', finFamily + Math.floor((.42 + ray * .48) * 7), rim ? 92 : 68 + Math.round(ray * 90))
         }
       } else if (u <= -9.5 && u >= -17) {
         const q = (-u - 9.5) / 7.5, fan = .48 + 3.8 * Math.sin(q * Math.PI * .56) ** 1.35

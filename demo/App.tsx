@@ -14,6 +14,8 @@ import {
   Code2,
   Copy,
   Download,
+  Eye,
+  EyeOff,
   Fish,
   Flower2,
   GitFork,
@@ -128,6 +130,26 @@ const targets = [
 ];
 type Panel = "scenes" | "controls" | "embed" | "more" | null;
 const PanelIsOpen = createContext(false);
+
+function ScenePreview({ environment }: { environment: EnvironmentPreset }) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const pond = api.createKoiPond(canvas.current!, {
+      environment,
+      fishCount: 7,
+      paused: true,
+      interactive: false,
+      detail: "fine",
+      particleDensity: .3,
+    });
+    return () => pond.destroy();
+  }, [environment]);
+  return (
+    <span className="scene-preview" aria-hidden="true">
+      <canvas ref={canvas} tabIndex={-1} />
+    </span>
+  );
+}
 
 function RangeControl({
   id,
@@ -321,9 +343,25 @@ export default function App() {
   const [fallbackText, setFallbackText] = useState("");
   const [notice, setNotice] = useState("");
   const [copied, setCopied] = useState("");
+  const [quiet, setQuiet] = useState(false);
   const environment = aliases[config.environment] || config.environment;
   const scene = scenes.find((item) => item.id === environment) || scenes[0];
   const SceneIcon = scene.Icon;
+  useEffect(() => {
+    if (!quiet) return;
+    const restore = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setQuiet(false);
+        requestAnimationFrame(() => document.getElementById("more")?.focus());
+      }
+    };
+    const focus = requestAnimationFrame(() => canvas.current?.focus());
+    window.addEventListener("keydown", restore);
+    return () => {
+      cancelAnimationFrame(focus);
+      window.removeEventListener("keydown", restore);
+    };
+  }, [quiet]);
   useEffect(() => {
     const node = canvas.current!;
     const shared = () => {
@@ -443,17 +481,19 @@ export default function App() {
         <main
           className="pond-playground"
           data-panel-open={open || undefined}
+          data-quiet={quiet || undefined}
           aria-label="Koi Pond playground"
         >
           <canvas
             ref={canvas}
             id="pond"
             className="pond-canvas"
+            style={{ touchAction: "none" }}
             tabIndex={0}
             aria-label="Interactive koi pond. Move to stir the water; click or press Enter to feed. Space pauses the pond."
           />
           <div className="pond-vignette" aria-hidden="true" />
-          <div className="dock-anchor">
+          <div className="dock-anchor" hidden={quiet}>
             <nav className="pond-dock" aria-label="Pond controls">
               <DockPanel
                 id="scenes"
@@ -490,14 +530,11 @@ export default function App() {
                         setOpen(null);
                       }}
                     >
-                      <span
-                        className="scene-symbol"
-                        style={{ color: item.color }}
-                      >
-                        <item.Icon aria-hidden="true" />
-                      </span>
+                      <ScenePreview environment={item.id} />
                       <span className="scene-copy">
-                        <span>{item.label}</span>
+                        <span>
+                          <item.Icon aria-hidden="true" />{item.label}
+                        </span>
                         <small>{item.description}</small>
                       </span>
                       {environment === item.id && (
@@ -629,7 +666,7 @@ export default function App() {
                       </fieldset>
                     </div>
                   </TabsContent>
-                  <TabsContent value="water" className="settings-body">
+                  <TabsContent value="water" className="settings-body water-settings">
                     <div className="range-grid">
                       <RangeControl
                         id="lily-density"
@@ -659,6 +696,28 @@ export default function App() {
                         step={0.05}
                         format={multiplier}
                         onChange={(value) => apply({ rippleIntensity: value })}
+                      />
+                    </div>
+                    <div className="range-grid water-optics">
+                      <RangeControl
+                        id="water-clarity"
+                        label="Water clarity"
+                        value={config.waterClarity}
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        format={percent}
+                        onChange={(value) => apply({ waterClarity: value })}
+                      />
+                      <RangeControl
+                        id="caustic-intensity"
+                        label="Light patterns"
+                        value={config.causticIntensity}
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        format={percent}
+                        onChange={(value) => apply({ causticIntensity: value })}
                       />
                     </div>
                     <div className="water-details">
@@ -1036,6 +1095,18 @@ export default function App() {
                   <Button
                     variant="primary"
                     className="menu-button"
+                    id="quiet-view"
+                    onClick={() => {
+                      setOpen(null);
+                      setQuiet(true);
+                    }}
+                  >
+                    <EyeOff aria-hidden="true" />
+                    Quiet view
+                  </Button>
+                  <Button
+                    variant="primary"
+                    className="menu-button"
                     id="snapshot"
                     onClick={snapshot}
                   >
@@ -1094,6 +1165,21 @@ export default function App() {
               </DockPanel>
             </nav>
           </div>
+          {quiet && (
+            <Button
+              variant="primary"
+              className="restore-controls"
+              aria-label="Show pond controls"
+              onClick={() => {
+                setQuiet(false);
+                requestAnimationFrame(() => document.getElementById("more")?.focus());
+              }}
+            >
+              <Eye aria-hidden="true" />
+              <span>Show controls</span>
+              <kbd>Esc</kbd>
+            </Button>
+          )}
           <div
             className={`pond-notice ${notice ? "is-visible" : ""}`}
             role="status"

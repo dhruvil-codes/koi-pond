@@ -1,4 +1,4 @@
-/*! Koi Pond v0.3.0 | Copyright 2026 Dhruvil | MIT License */
+/*! Koi Pond v0.4.0 | Copyright 2026 Dhruvil | MIT License */
 (() => {
 'use strict';
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n))
@@ -16,7 +16,7 @@ const PALETTE = ['#000000', '#0b0d0c', '#161b17', '#242923', '#55574e', '#8d8c7d
   ...ramp('713b52', 'f3c1cd', 12), ...ramp('dca7b1', 'fff0df', 6), ...ramp('8e5d28', 'f2cc73', 6), ...ramp('406b87', 'b9dfeb', 8)]
 
 const VARIETIES = Object.freeze(['kohaku', 'sanke', 'ogon', 'shusui'])
-const DEFAULT_OPTIONS = Object.freeze({ environment: 'zen', fishCount: 12, speed: 1.35, fishSize: 1, varieties: VARIETIES, behavior: 'wander', waterColor: null, lilyDensity: .7, lotusCount: 2, particleDensity: .45, rippleIntensity: 1, timeOfDay: 'auto', seed: 2026, lilies: true, lotus: true, detail: 'fine', paused: false, interactive: true })
+const DEFAULT_OPTIONS = Object.freeze({ environment: 'zen', fishCount: 12, speed: 1.35, fishSize: 1, varieties: VARIETIES, behavior: 'wander', waterColor: null, waterClarity: .8, causticIntensity: .65, lilyDensity: .7, lotusCount: 2, particleDensity: .45, rippleIntensity: 1, timeOfDay: 'auto', seed: 2026, lilies: true, lotus: true, detail: 'fine', paused: false, interactive: true })
 const optionKeys = new Set(Object.keys(DEFAULT_OPTIONS))
 const configEnvironments = ['zen', 'moonlight', 'autumn', 'sakura', 'daylight', 'midnight', 'rain', 'dusk']
 
@@ -31,6 +31,7 @@ function validateOptions(partial = {}, current = DEFAULT_OPTIONS) {
     if (!Number.isFinite(next[key]) || next[key] < low || next[key] > high || (integer && !Number.isInteger(next[key]))) throw new RangeError(`${key} must be ${integer ? 'an integer' : 'a finite number'} from ${low} to ${high}`)
   }
   range('fishCount', 1, 30, true); range('speed', .1, 3); range('fishSize', .5, 1.8)
+  range('waterClarity', 0, 1); range('causticIntensity', 0, 1)
   range('lilyDensity', 0, 1); range('lotusCount', 0, 6, true); range('particleDensity', 0, 1); range('rippleIntensity', 0, 2); range('seed', 0, 4294967295, true)
   if (!Array.isArray(next.varieties) || !next.varieties.length || next.varieties.some(id => !VARIETIES.includes(id)) || new Set(next.varieties).size !== next.varieties.length) throw new TypeError('Choose one or more unique fish varieties')
   next.varieties = [...next.varieties]
@@ -65,7 +66,7 @@ function randomizeConfig(seed = Math.floor(Math.random() * 4294967296)) {
   const choose = values => values[Math.floor(next() * values.length)]
   const round = n => Math.round(n * 100) / 100
   const varieties = VARIETIES.filter(() => next() > .25)
-  return validateOptions({ environment: choose(configEnvironments.slice(0, 5)), fishCount: 6 + Math.floor(next() * 15), speed: round(.5 + next() * 1.4), fishSize: round(.75 + next() * .55), varieties: varieties.length ? varieties : ['kohaku'], behavior: choose(['wander', 'school', 'circle']), lilyDensity: round(.25 + next() * .65), lotusCount: 1 + Math.floor(next() * 4), particleDensity: round(.2 + next() * .6), rippleIntensity: round(.5 + next()), seed })
+  return validateOptions({ environment: choose(configEnvironments.slice(0, 5)), fishCount: 6 + Math.floor(next() * 15), speed: round(.5 + next() * 1.4), fishSize: round(.75 + next() * .55), varieties: varieties.length ? varieties : ['kohaku'], behavior: choose(['wander', 'school', 'circle']), lilyDensity: round(.25 + next() * .65), lotusCount: 1 + Math.floor(next() * 4), particleDensity: round(.2 + next() * .6), rippleIntensity: round(.5 + next()), waterClarity: round(.55 + next() * .45), causticIntensity: round(.2 + next() * .7), seed })
 }
 
 
@@ -298,6 +299,36 @@ function envReeds(pond, put, scene, seed) {
   }
 }
 
+function envPondBed(pond, put, seed, clarity) {
+  if (clarity === 0) return
+  const { columns, rows, aspect } = pond
+  // Small clusters leave the centre open; low-contrast material keeps them submerged.
+  for (let i = 0; i < 74; i++) {
+    const bank = i % 3, n = hash(i + seed, 531), m = hash(i + seed, 532)
+    const cx = columns * (bank === 0 ? .015 + n * .19 : bank === 1 ? .79 + n * .2 : .12 + n * .77)
+    const cy = rows * (bank === 0 ? .28 + m * .24 : bank === 1 ? .8 + m * .19 : .91 + m * .09)
+    const radius = Math.max(.8, columns * (.0022 + hash(i + seed, 533) * .006))
+    for (let y = Math.floor(cy - radius / aspect); y <= Math.ceil(cy + radius / aspect); y++) {
+      for (let x = Math.floor(cx - radius); x <= Math.ceil(cx + radius); x++) {
+        const u = (x - cx) / radius, v = (y - cy) * aspect / radius
+        if (u * u + v * v > 1) continue
+        const light = clamp(.42 - u * .19 - v * .24 + n * .12, 0, 1)
+        put(x, y, n > .6 ? ':' : '.', 93 + Math.floor(light * 7), Math.round(110 + clarity * 75))
+      }
+    }
+  }
+  for (let i = 0; i < 18; i++) {
+    const n = hash(i + seed, 812), cx = columns * (i % 2 ? .91 + n * .08 : .015 + n * .065)
+    const cy = rows * (.47 + hash(i + seed, 813) * .44), length = columns * (.018 + n * .025)
+    for (let blade = -1; blade <= 1; blade++) {
+      for (let s = 0; s < length; s += .7) {
+        const t = s / length, x = cx + blade * length * .23 * t + Math.sin(t * 2.7 + n * 6) * length * .12
+        put(x, cy - s / aspect, blade < 0 ? '\\' : '/', 94 + Math.floor(t * 6), Math.round((95 + t * 65) * clarity))
+      }
+    }
+  }
+}
+
 function envBuild(pond, key) {
   const { columns, rows, aspect } = pond, options = pond.options || {}, scene = resolveEnvironment(options.environment || 'zen')
   const seed = (options.seed ?? 2026) >>> 0, fine = options.detail !== 'balanced', total = columns * rows
@@ -313,17 +344,20 @@ function envBuild(pond, key) {
     const bend = Math.sin(y * .07 + seed % 11) * 1.9, sy = Math.sin(y * .11), cy = Math.cos(y * .11)
     for (let x = 0; x < columns; x++) {
       const waves = xWaves[x], coarse = waves[0] * cy + waves[2] * sy + Math.sin(y * .15 + waves[1] * 1.3)
-      const grain = hash(Math.floor(x / 3) + seed, Math.floor(y / 2)), light = clamp(.36 + coarse * .15 + grain * .13, .05, .95)
+      const grain = hash(Math.floor(x / 3) + seed, Math.floor(y / 2))
+      const shallow = Math.max(0, 1 - Math.hypot((x / columns - .5) * 1.3, (y / rows - .48) * .9))
+      const light = clamp(.39 + coarse * .105 + grain * .045 - shallow * .08, .05, .95)
       // Quiet solid material carries the water's depth; actual ink follows a few caustic contours.
       backPut(x, y, ' ', 91 + Math.floor(light * 14), 90 + Math.round(light * 105))
       const contour = Math.sin(x * .055 + y * .105 + bend + waves[0] * 1.8)
-      if (contour > .957 && grain > .24) backPut(x, y, hash(x, y) > .65 ? '-' : '.', 98 + Math.floor(light * 6), 150)
+      if (contour > .978 && grain > .34) backPut(x, y, hash(x, y) > .65 ? '-' : '.', 97 + Math.floor(light * 5), 130)
       if (scene === 'daylight' && fine && x % 3 === 0 && y % 2 === 0 && contour > .83 && hash(x + seed, y + 53) > .72) {
         backPut(x, y, '.', 166 + Math.floor(hash(x, y + seed) * 5), 82)
       }
       if (fine && x % 3 === 0 && y % 2 === 0 && grain > .65) shimmer.push([x, y, x * .027 + y * .09 + grain * 5])
     }
   }
+  envPondBed(pond, backPut, seed, options.waterClarity ?? .8)
   // Submerged bank shadows sit beneath the rock geometry and remain out of the fish layer.
   for (const [cx, cy, rx, ry] of [[-.01, .44, .10, .10], [.96, 1.01, .21, .19]]) {
     for (let y = Math.max(0, Math.floor((cy - ry) * rows)); y < Math.min(rows, Math.ceil((cy + ry) * rows)); y++) for (let x = Math.max(0, Math.floor((cx - rx) * columns)); x < Math.min(columns, Math.ceil((cx + rx) * columns)); x++) {
@@ -350,24 +384,51 @@ function envBuild(pond, key) {
   for (let i = 0; i < flowerCount; i++) envDrawLotus(still, frontPut, envFlowerLayout[i])
   const frontCells = []
   for (let i = 0; i < total; i++) if (front.coverage[i] || front.chars[i] !== 32) frontCells.push(i)
-  return { key, back, front, frontCells, shimmer }
+  const causticX = Array.from({ length: columns }, (_, x) => {
+    const phase = x / columns * 64, bend = Math.sin(x / columns * 35 + seed % 13)
+    return [Math.sin(phase), Math.cos(phase), Math.sin(bend), Math.cos(bend)]
+  })
+  return { key, back, front, frontCells, shimmer, causticX }
 }
 
 function envGet(pond) {
   const options = pond.options || {}
-  const key = [pond.columns, pond.rows, pond.aspect, resolveEnvironment(options.environment || 'zen'), options.seed ?? 2026, options.detail, options.lilies, options.lilyDensity ?? .7, options.lotus, options.lotusCount ?? 2].join('|')
+  const key = [pond.columns, pond.rows, pond.aspect, resolveEnvironment(options.environment || 'zen'), options.seed ?? 2026, options.detail, options.waterClarity ?? .8, options.lilies, options.lilyDensity ?? .7, options.lotus, options.lotusCount ?? 2].join('|')
   let cached = envCache.get(pond)
   if (!cached || cached.key !== key) { cached = envBuild(pond, key); envCache.set(pond, cached) }
   return cached
 }
 
 function envRing(pond, put, cx, cy, radius, color, strength = 1) {
-  if (radius < .2) return
+  if (radius < .2 || strength < .005) return
   const segments = Math.max(12, Math.ceil(radius * Math.PI * 2 / .85))
   for (let i = 0; i < segments; i++) {
     const angle = i / segments * Math.PI * 2
-    if (hash(i, Math.floor(radius * 3)) < .14) continue
-    put(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius / pond.aspect, '.', color, Math.round(90 + 70 * Math.min(1, strength)))
+    if (hash(Math.floor(angle * 16), 721) < .08) continue
+    put(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius / pond.aspect, Math.abs(Math.sin(angle)) > .7 ? '-' : '.', color, Math.round(clamp(strength, 0, 1) * 190))
+  }
+}
+
+function envCaustics(pond, cached, put, scene) {
+  const { columns, rows, time, options } = pond
+  const intensity = options.causticIntensity ?? .65, clarity = options.waterClarity ?? .8
+  if (!intensity || !clarity) return
+  const light = options.timeOfDay === 'auto' ? (scene === 'moonlight' ? .28 : scene === 'daylight' ? 1 : .65)
+    : .2 + .8 * Math.max(0, Math.sin((options.timeOfDay - 6) / 12 * Math.PI))
+  const strength = intensity * clarity * light
+  const step = options.detail === 'balanced' ? 2 : 1, flow = time * .23
+  for (let y = 0; y < rows; y += step) {
+    const py = y / rows * 36, wave = Math.sin(py * .7 + flow) * 1.4
+    const sinWave = Math.sin(wave + flow * .4), cosWave = Math.cos(wave + flow * .4)
+    const sinY = Math.sin(py - flow * .7), cosY = Math.cos(py - flow * .7)
+    for (let x = 0; x < columns; x += step) {
+      const phases = cached.causticX[x]
+      const field = phases[0] * cosWave + phases[1] * sinWave + sinY * phases[3] + cosY * phases[2]
+      const edge = Math.max(0, 1 - Math.abs(field - .35) / .13)
+      if (edge < .14) continue
+      const brightness = edge * edge * strength
+      put(x, y, brightness > .5 ? '-' : '.', 101 + Math.floor(brightness * 5), Math.round(65 + brightness * 115))
+    }
   }
 }
 
@@ -410,25 +471,43 @@ function envReflection(pond, put, scene) {
 function paintEnvironmentBack(pond, frame, put) {
   const cached = envGet(pond), time = pond.time || 0, options = pond.options || {}, scene = resolveEnvironment(options.environment || 'zen')
   frame.chars.set(cached.back.chars); frame.colors.set(cached.back.colors); frame.coverage.set(cached.back.coverage)
+  envCaustics(pond, cached, put, scene)
   const intensity = options.rippleIntensity ?? 1
   if (intensity > 0) {
     for (const [x, y, phase] of cached.shimmer) {
       const light = Math.sin(time * .24 + phase)
       if (light > .94) put(x + Math.sin(time * .08 + phase) * .6, y, '.', 100 + Math.floor((light - .94) * 60), 65)
     }
-    // Wide, broken surface rings echo the reference without covering its open swimming area.
-    for (let i = 0; i < 3; i++) {
-      const pulse = ((time * .009 + i * .19) % .72), radius = pond.columns * (.11 + pulse * .37)
-      envRing(pond, put, pond.columns * [.4, .73, .16][i], pond.rows * [.71, .78, .91][i], radius, 102 + Math.floor(intensity), intensity * .45)
-    }
-    for (const ripple of pond.ripples || []) {
-      const radius = ripple.age * pond.columns * .078, strength = (ripple.strength ?? 1) * intensity
-      const color = ripple.age < .8 && strength > .8 ? 10 : ripple.age < 2 ? 3 : ripple.age < 3.5 ? 2 : 1
-      if (ripple.age > .04) envRing(pond, put, ripple.x, ripple.y, radius, color, strength)
-      if (ripple.age > .3) envRing(pond, put, ripple.x, ripple.y, radius * .72, ripple.age < 2 ? 2 : 1, strength * .7)
-    }
   }
   envReflection(pond, put, scene)
+}
+
+function paintEnvironmentSurface(pond, frame, put) {
+  const intensity = pond.options.rippleIntensity ?? 1
+  if (!intensity) return
+  // Ambient droplets are spaced far apart so the water never becomes a target pattern.
+  for (let i = 0; i < 2; i++) {
+    const age = (pond.time + i * 7.3) % 17
+    if (age > 3.8) continue
+    const cycle = Math.floor((pond.time + i * 7.3) / 17), seed = pond.options.seed ?? 2026
+    const x = pond.columns * (.2 + hash(cycle + seed, i + 864) * .62), y = pond.rows * (.25 + hash(cycle + seed, i + 865) * .55)
+    envRing(pond, put, x, y, (age + .1) * pond.columns * .026, 102, .22 * intensity * (1 - age / 3.8))
+  }
+  for (const ripple of pond.ripples) {
+    const bite = ripple.kind === 'bite', age = ripple.age, life = bite ? 1.4 : 4.5
+    if (age >= life) continue
+    const fade = (1 - age / life) ** 1.7, strength = (ripple.strength ?? 1) * intensity * fade
+    const radius = Math.max(.8, age * pond.columns * (bite ? .027 : .078))
+    envRing(pond, put, ripple.x, ripple.y, radius, 104, strength)
+    if (age > .16 && !bite) envRing(pond, put, ripple.x, ripple.y, radius * .71, 101, strength * .45)
+    if (age < .65) {
+      for (let i = 0; i < (bite ? 5 : 3); i++) {
+        const angle = i * 2.4 + .6, distance = (.4 + age * (bite ? 5 : 3)) * pond.columns / 280
+        put(ripple.x + Math.cos(angle) * distance, ripple.y + Math.sin(angle) * distance / pond.aspect,
+          bite ? 'o' : '.', bite ? 22 : 106, Math.round((1 - age / .65) * strength * 235))
+      }
+    }
+  }
 }
 
 function paintEnvironmentFront(pond, frame, put) {
@@ -493,6 +572,8 @@ function fishInitialize(pond, fish) {
   fish.turnVelocity = 0
   fish.currentSpeed = fish.speed * pond.columns / 100 * pond.options.speed
   fish.swimPhase = fish.phase
+  fish.depth = fishCruiseDepth(fish, 0)
+  fish.tailEffort = .3
   fish.spine = [{ x: fish.x, y: fish.y }]
   const gap = fishLength(pond, fish) / (FISH_JOINTS - 1)
   for (let j = 1; j < FISH_JOINTS; j++) {
@@ -503,6 +584,11 @@ function fishInitialize(pond, fish) {
 }
 
 const fishLength = (pond, fish) => 25 * fish.scale * pond.options.fishSize * pond.columns / 112
+
+function fishCruiseDepth(fish, time) {
+  return clamp(.46 + .24 * Math.sin(time * .16 + fish.phase * 1.37)
+    + .08 * Math.sin(time * .073 + fish.phase * 2.11), .12, .82)
+}
 
 function fishFollowSpine(pond, fish) {
   const gap = fishLength(pond, fish) / (FISH_JOINTS - 1)
@@ -571,14 +657,21 @@ function fishAdvance(pond, dt, disturb) {
     const arrival = pellet ? clamp(nearest / (length * 1.2), .12, 1) * clamp((1 + Math.cos(error)) * .5, .12, 1) : 1
     const cruise = fish.speed * pond.columns / 100 * pond.options.speed
     const speedTarget = pellet ? Math.max(cruise * arrival, pond.columns * .001)
-      : cruise * (.88 + .08 * Math.sin(pond.time * .6 + fish.phase))
+      : cruise * (.88 + .16 * Math.sin(pond.time * .6 + fish.phase))
+    const effort = clamp(.12 + .28 * speedTarget / (cruise || 1) + .85 * Math.abs(speedTarget - fish.currentSpeed) / (cruise || 1)
+      + .3 * Math.abs(fish.turnVelocity), .2, 1)
+    fish.tailEffort += (effort - fish.tailEffort) * (1 - Math.exp(-dt * 3.5))
     fish.currentSpeed += (speedTarget - fish.currentSpeed) * (1 - Math.exp(-dt * (pellet ? 3.5 : 1.8)))
+    const approach = pellet ? 1 - clamp(nearest / (pond.columns * .24), 0, 1) : 0
+    const depthTarget = fishCruiseDepth(fish, pond.time) * (1 - approach) + .045 * approach
+    fish.depth += (depthTarget - fish.depth) * (1 - Math.exp(-dt * (pellet ? 2.2 : .65)))
+    fish.depth = clamp(fish.depth, 0, 1)
     fish.x = clamp(fish.x + Math.cos(fish.angle) * fish.currentSpeed * dt, .5, pond.columns - .5)
     fish.y = clamp(fish.y + Math.sin(fish.angle) * fish.currentSpeed * dt / pond.aspect, .5, pond.rows - .5)
     // Only a head at the pellet can eat it; distance is measured in aspect-corrected cells.
     if (pellet && Math.hypot(pellet.x - fish.x, (pellet.y - fish.y) * pond.aspect) < Math.max(.8, length * .075)) {
       pond.food.splice(pond.food.indexOf(pellet), 1); pond.eaten++
-      disturb(pond, pellet.x, pellet.y, .3)
+      disturb(pond, pellet.x, pellet.y, .7, 'bite')
     }
     fish.swimPhase += dt * (1.5 + fish.currentSpeed / pond.columns * 38)
     fishFollowSpine(pond, fish)
@@ -590,12 +683,15 @@ function fishAnimatedSpine(pond, fish) {
   return fish.spine.map((p, i, nodes) => {
     const t = i / (FISH_JOINTS - 1), previous = nodes[Math.max(0, i - 1)], next = nodes[Math.min(FISH_JOINTS - 1, i + 1)]
     const dx = previous.x - next.x, dy = (previous.y - next.y) * pond.aspect, d = Math.hypot(dx, dy) || 1
-    const wave = Math.sin(fish.swimPhase - t * 4.6) * length * .024 * t ** 1.8
+    const wave = Math.sin(fish.swimPhase - t * 4.6) * length * (.022 + .029 * fish.tailEffort) * t ** 1.8
     return { x: p.x - dy / d * wave, y: p.y + dx / d * wave / pond.aspect }
   })
 }
 
 function fishDrawWake(pond, fish, frame, put) {
+  const clarity = pond.options.waterClarity ?? .8
+  const surface = (1 - fish.depth) * clamp(fish.currentSpeed / (fish.speed * pond.columns / 100 * pond.options.speed || 1), 0, 1.3)
+  if (surface < .12) return
   const length = fishLength(pond, fish)
   for (let i = 0; i < 19; i++) {
     if (i % 3 === 1) continue
@@ -607,18 +703,60 @@ function fishDrawWake(pond, fish, frame, put) {
     for (const side of [-1, 1]) {
       const px = Math.round(x - dy / distance * spread * side), py = Math.round(y + dx / distance * spread * side / pond.aspect)
       if (px < 0 || px >= frame.columns || py < 0 || py >= frame.rows) continue
-      const index = py * frame.columns + px
-      put(px, py, '.', frame.colors[index], frame.coverage[index])
+      const pulse = .7 + .3 * Math.sin(fish.swimPhase - i * .65)
+      put(px, py, i % 4 === 0 ? ',' : '.', 100 + (i % 3), Math.round((26 + 42 * clarity) * surface * pulse))
     }
   }
 }
 
+function fishDrawShadow(pond, fish, frame, mask) {
+  const { columns, rows } = frame, { aspect } = pond
+  const scale = fish.scale * pond.options.fishSize * columns / 112
+  const clarity = pond.options.waterClarity ?? .8
+  const depth = fish.depth
+  const offsetX = (.65 + depth * 3.8) * scale
+  const offsetY = (.45 + depth * 2.8) * scale / aspect
+  const shade = (1.2 + depth * 3.4) * (.35 + clarity * .65)
+  const radius = Math.max(.55, scale * 2.35)
+  // Sparse capsules follow the articulated body, with the tail tapering out.
+  for (let j = 0; j < FISH_JOINTS - 5; j++) {
+    const a = fish.spine[j], b = fish.spine[j + 1]
+    const taper = Math.sin((j + 1) / (FISH_JOINTS - 4) * Math.PI) ** .65
+    const r = Math.max(.45, radius * taper)
+    const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, (b.y - a.y) * aspect) / .85))
+    for (let step = 0; step <= steps; step++) {
+      const at = step / steps, cx = a.x + (b.x - a.x) * at + offsetX, cy = a.y + (b.y - a.y) * at + offsetY
+      const x0 = Math.max(0, Math.ceil(cx - r)), x1 = Math.min(columns - 1, Math.floor(cx + r))
+      const y0 = Math.max(0, Math.ceil(cy - r / aspect)), y1 = Math.min(rows - 1, Math.floor(cy + r / aspect))
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const d = Math.hypot(x - cx, (y - cy) * aspect) / r
+        if (d <= 1) {
+          const index = y * columns + x
+          mask[index] = Math.max(mask[index], Math.round(shade * (1 - d * d)))
+        }
+      }
+    }
+  }
+}
+
+const fishShadowMasks = new WeakMap()
 function fishPaint(pond, frame, put) {
   const { columns: cols, rows, aspect } = pond
   let distances = new Float64Array(0), fractions = new Float64Array(0), closest = new Uint8Array(0)
+  let shadow = fishShadowMasks.get(pond)
+  if (!shadow || shadow.length !== cols * rows) { shadow = new Uint8Array(cols * rows); fishShadowMasks.set(pond, shadow) }
+  shadow.fill(0)
+  for (const fish of pond.fish) fishDrawShadow(pond, fish, frame, shadow)
+  // Shade each cell once, so overlapping capsules do not accumulate hard black seams.
+  for (let i = 0; i < shadow.length; i++) if (shadow[i]) {
+    const background = frame.colors?.[i] || 98
+    if (background < 91 || background > 106) continue
+    put(i % cols, Math.floor(i / cols), '.', Math.max(91, background - shadow[i]), frame.coverage?.[i] || 170)
+  }
   for (const fish of pond.fish) fishDrawWake(pond, fish, frame, put)
-  for (const fish of pond.fish) {
+  for (const fish of pond.fish.slice().sort((a, b) => b.depth - a.depth)) {
     const spine = fishAnimatedSpine(pond, fish), s = fish.scale * pond.options.fishSize * cols / 112
+    const bodyCoverage = Math.round(244 - fish.depth * (8 + 65 * (1 - (pond.options.waterClarity ?? .8))))
     const segments = spine.slice(0, -1).map((a, j) => {
       const b = spine[j + 1], dx = b.x - a.x, dy = (b.y - a.y) * aspect
       return { x: a.x, y: a.y, dx, dy, inverseSquared: 1 / (dx * dx + dy * dy || 1), angle: Math.atan2(-dy, -dx) }
@@ -687,7 +825,7 @@ function fishPaint(pond, frame, put) {
         if (gill) light *= .64
         const glyph = eye ? 'o' : mouth ? '=' : gill ? ')' : ridge ? '^' : scaleSeam ? (cross < .5 ? '(' : ')')
           : FISH_DENSITY[Math.floor(clamp(.15 + light * .8, 0, 1) * (FISH_DENSITY.length - 1))]
-        put(x, y, glyph, eye || mouth ? 39 : family + Math.floor(light * (family === 39 ? 5 : 7)), eye ? 255 : 242)
+        put(x, y, glyph, eye || mouth ? 39 : family + Math.floor(light * (family === 39 ? 5 : 7)), eye ? 255 : bodyCoverage)
         if (eyeDistance >= .31 && eyeDistance < .49) put(x, y, '.', 15, 225)
       } else if (u > 5.7 && u < 7.5 && Math.abs(Math.abs(v) - (2.5 - (u - 5.7) * .65)) < .18) {
         put(x, y, v > 0 ? '/' : '\\', 15, 110)
@@ -696,7 +834,8 @@ function fishPaint(pond, frame, put) {
         const edge = 3 + 2.5 * Math.sin((u + 2.8) / 6.8 * Math.PI) * flutter
         if (Math.abs(v) < edge) {
           const ray = Math.abs(Math.sin(Math.atan2(v, u - 4.5) * 26)), rim = edge - Math.abs(v) < .24
-          put(x, y, rim ? '.' : ray > .78 ? '/' : ':', 39 + Math.floor((rim ? .65 : .15 + ray * .7) * 5), rim ? 100 : 90 + Math.round(ray * 90))
+          const finFamily = fish.variety === 'ogon' ? 31 : fish.variety === 'shusui' ? 83 : 15
+          put(x, y, rim ? '.' : ray > .78 ? '/' : ':', finFamily + Math.floor((.42 + ray * .48) * 7), rim ? 92 : 68 + Math.round(ray * 90))
         }
       } else if (u <= -9.5 && u >= -17) {
         const q = (-u - 9.5) / 7.5, fan = .48 + 3.8 * Math.sin(q * Math.PI * .56) ** 1.35
@@ -761,8 +900,8 @@ function resizePond(pond, columns, rows) {
   for (const fish of pond.fish) fishFollowSpine(pond, fish)
 }
 
-function disturb(pond, x, y, strength = 1) {
-  pond.ripples.push({ x: clamp(x, 0, pond.columns - 1), y: clamp(y, 0, pond.rows - 1), age: 0, strength })
+function disturb(pond, x, y, strength = 1, kind = 'touch') {
+  pond.ripples.push({ x: clamp(x, 0, pond.columns - 1), y: clamp(y, 0, pond.rows - 1), age: 0, strength, kind })
   if (pond.ripples.length > 10) pond.ripples.shift()
 }
 
@@ -800,6 +939,7 @@ function renderPond(pond) {
   }
   paintEnvironmentBack(pond, frame, put)
   fishPaint(pond, frame, put)
+  paintEnvironmentSurface(pond, frame, put)
   paintEnvironmentFront(pond, frame, put)
   // Food floats above the foreground pads and reeds. Keep its footprint visible
   // at small grids, while scaling gently with the larger detailed canvases.
@@ -838,7 +978,7 @@ function createKoiPond(canvas, options = {}) {
   const saved = Object.fromEntries(['tabindex', 'role', 'aria-label'].map(key => [key, canvas.getAttribute(key)]))
   const originalTouchAction = canvas.style.touchAction
   const originalCursor = canvas.style.cursor
-  canvas.style.touchAction = 'pan-y'
+  canvas.style.touchAction = originalTouchAction === 'none' ? 'none' : 'pan-y'
 
   const alive = () => { if (destroyed) throw new Error('This pond has been destroyed') }
   const config = () => Object.freeze({ ...pond.options, varieties: Object.freeze([...pond.options.varieties]), paused: pond.paused })
@@ -879,7 +1019,11 @@ function createKoiPond(canvas, options = {}) {
         ctx.globalAlpha = 1
       }
       if (frame.coverage[i] > 128) ctx.fillStyle = frame.colors[i] >= 91 ? 'rgba(0,0,0,.16)' : frame.colors[i] >= 83 ? 'rgba(12,35,44,.3)' : frame.colors[i] >= 59 ? 'rgba(74,27,48,.3)' : frame.colors[i] >= 45 ? 'rgba(5,22,12,.4)' : 'rgba(55,47,35,.28)'
-      if (frame.chars[i] !== 32) ctx.fillText(String.fromCharCode(frame.chars[i]), (x + .5) * cellX, (y + .5) * cellY)
+      if (frame.chars[i] !== 32) {
+        ctx.globalAlpha = frame.coverage[i] <= 128 ? frame.coverage[i] / 128 : 1
+        ctx.fillText(String.fromCharCode(frame.chars[i]), (x + .5) * cellX, (y + .5) * cellY)
+        ctx.globalAlpha = 1
+      }
     }
     paintedFrame = frame; paintedPalette = palette; paintedCursor = Boolean(keyboardCursor)
     if (keyboardCursor && pond.options.interactive) {
@@ -916,7 +1060,7 @@ function createKoiPond(canvas, options = {}) {
     const fine = pond.options.detail === 'fine'
     const workload = Math.max(1, pond.options.fishCount / 14) * Math.max(1, pond.options.fishSize) ** 2
     const maximum = Math.max(fine ? 180 : 140, Math.floor((fine ? 480 : 300) / Math.sqrt(workload)))
-    cellX = Math.max(fine ? 2.5 : 4, Math.min(fine ? 4 : 6, width / (fine ? 280 : 180)), width / maximum)
+    cellX = Math.max(fine ? 2.5 : 4, Math.min(fine ? 3 : 6, width / (fine ? 360 : 180)), width / maximum)
     cellY = cellX * 1.6
     canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr)
     paintedFrame = undefined; frameBudget = 1000 / 60; slowFrames = 0
@@ -959,7 +1103,7 @@ function createKoiPond(canvas, options = {}) {
     if (down && down.id !== event.pointerId) return
     const dx = down ? event.clientX - down.x : 0, dy = down ? event.clientY - down.y : 0
     if (down && Math.hypot(dx, dy) >= 6) down.moved = true
-    if (event.pointerType === 'touch' && (!down || Math.abs(dy) > Math.abs(dx))) return
+    if (event.pointerType === 'touch' && (!down || (canvas.style.touchAction !== 'none' && Math.abs(dy) > Math.abs(dx)))) return
     const p = point(event), now = win.performance.now()
     keyboardCursor = undefined
     const distance = lastPoint ? Math.hypot((p.x - lastPoint.x) * width, (p.y - lastPoint.y) * height) : 6
@@ -1055,7 +1199,7 @@ function createKoiPond(canvas, options = {}) {
 }
 
 
-const attributes = { environment: 'environment', speed: 'speed', 'fish-count': 'fishCount', 'fish-size': 'fishSize', varieties: 'varieties', behavior: 'behavior', 'water-color': 'waterColor', 'lily-density': 'lilyDensity', 'lotus-count': 'lotusCount', 'particle-density': 'particleDensity', 'ripple-intensity': 'rippleIntensity', 'time-of-day': 'timeOfDay', seed: 'seed', lilies: 'lilies', lotus: 'lotus', detail: 'detail', paused: 'paused', interactive: 'interactive' }
+const attributes = { environment: 'environment', speed: 'speed', 'fish-count': 'fishCount', 'fish-size': 'fishSize', varieties: 'varieties', behavior: 'behavior', 'water-color': 'waterColor', 'water-clarity': 'waterClarity', 'caustic-intensity': 'causticIntensity', 'lily-density': 'lilyDensity', 'lotus-count': 'lotusCount', 'particle-density': 'particleDensity', 'ripple-intensity': 'rippleIntensity', 'time-of-day': 'timeOfDay', seed: 'seed', lilies: 'lilies', lotus: 'lotus', detail: 'detail', paused: 'paused', interactive: 'interactive' }
 const booleans = new Set(['lilies', 'lotus', 'paused', 'interactive'])
 const HTMLElementBase = globalThis.HTMLElement || class {}
 
@@ -1069,7 +1213,7 @@ function parseAttribute(name, value) {
   if (name === 'varieties') return value.split(',').map(item => item.trim())
   if (name === 'water-color' && value === 'auto') return null
   if (name === 'time-of-day' && value === 'auto') return 'auto'
-  if (['speed', 'fish-count', 'fish-size', 'lily-density', 'lotus-count', 'particle-density', 'ripple-intensity', 'time-of-day', 'seed'].includes(name)) return value.trim() === '' ? NaN : Number(value)
+  if (['speed', 'fish-count', 'fish-size', 'water-clarity', 'caustic-intensity', 'lily-density', 'lotus-count', 'particle-density', 'ripple-intensity', 'time-of-day', 'seed'].includes(name)) return value.trim() === '' ? NaN : Number(value)
   return value
 }
 

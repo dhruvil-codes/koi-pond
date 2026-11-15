@@ -45,9 +45,11 @@ const nearColor = (cx, cy, color) => {
   for (let y = Math.round(cy) - 1; y <= Math.round(cy) + 1; y++) for (let x = Math.round(cx) - 1; x <= Math.round(cx) + 1; x++) if (ripple.colors[y * 280 + x] === color) return true
   return false
 }
-assert(nearColor(140 + radius, 50, 3), 'Ripple reaches its horizontal radius')
-assert(nearColor(140, 50 + radius / ripplePond.aspect, 3), 'Ripple respects character aspect ratio')
+assert(nearColor(140 + radius, 50, 104), 'Ripple reaches its horizontal radius')
+assert(nearColor(140, 50 + radius / ripplePond.aspect, 104), 'Ripple respects character aspect ratio')
 assert(ripple.colors[50 * 280 + Math.round(140 + radius * .5)] >= 91, 'Ripple traces a ring without filling its interior')
 configurePond(ripplePond, { rippleIntensity: 0 })
-assert(!renderPond(ripplePond).colors.some(color => color === 3), 'Zero ripple intensity suppresses disturbance rings')
+const withoutRings = renderPond(ripplePond)
+ripplePond.ripples = []
+assert.deepEqual(renderPond(ripplePond), withoutRings, 'Zero ripple intensity suppresses disturbance rings')
 console.log('Rendering passed: portrait/desktop bounds, printable ASCII, plant and koi detail, purity, bounded tails and elliptical ripples.')

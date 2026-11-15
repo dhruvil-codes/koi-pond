@@ -25,6 +25,8 @@ Environment contract: `ENVIRONMENTS` is five frozen metadata entries with canoni
 | varieties | kohaku,sanke,ogon,shusui | nonempty unique array of those ids |
 | behavior | wander | wander, school, circle |
 | waterColor | null | null for preset water, or #rrggbb |
+| waterClarity | 0.8 | finite 0–1 |
+| causticIntensity | 0.65 | finite 0–1 |
 | lilyDensity | 0.7 | finite 0–1 |
 | lotusCount | 2 | integer 0–6 |
 | particleDensity | 0.45 | finite 0–1 |
@@ -45,7 +47,7 @@ Zen: layered jade water, mossy granite bank, reeds, blossom branch, pink lotuses
 
 Art-first pond with five visually identifiable preset selectors; a compact inspector for fish/water/atmosphere; live values and all requested controls; Reset to defaults and Randomize. Clear separate Install and Configuration outputs, copy buttons, static/React/Next.js examples, background recipe, config import and share link. Responsive mobile layout, accessible labels/status, touch targets, reduced motion and offscreen pause. No generic analytics/dashboard cards.
 
-The npm registry package is not published. Provide the real command `npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.3.0`, with clear GitHub-source label, and create the tag when shipping. Do not claim registry publication. Imported npm package name remains `@dhruvil-codes/koi-pond`. The embedded library has no playground dependency. Keep standalone index.html, classic and ESM builds, SSR-safe exports and lifecycle cleanup. Add a public GitHub Pages deployment when shipping if repository permissions permit.
+The npm registry package is not published. Provide the real command `npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.4.0`, with clear GitHub-source label, and create the tag when shipping. Do not claim registry publication. Imported npm package name remains `@dhruvil-codes/koi-pond`. The embedded library has no playground dependency. Keep standalone index.html, classic and ESM builds, SSR-safe exports and lifecycle cleanup. Add a public GitHub Pages deployment when shipping if repository permissions permit.
 
 ## Verification
 

@@ -13,6 +13,10 @@ export interface PondOptions {
   behavior?: 'wander' | 'school' | 'circle'
   /** null uses the selected environment's water. */
   waterColor?: string | null
+  /** Visibility of submerged details, 0 to 1; default .8. */
+  waterClarity?: number
+  /** Moving underwater light patterns, 0 to 1; default .65. */
+  causticIntensity?: number
   lilyDensity?: number
   lotusCount?: number
   particleDensity?: number

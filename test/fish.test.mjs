@@ -80,7 +80,8 @@ assert(colorSets[3].some(c => c >= 83 && c <= 90), 'Shusui has a blue dorsal str
 assert.equal(PALETTE.length, 91)
 for (const colors of colorSets) for (const color of new Set(colors)) {
   if (color === 0) continue
-  assert(color >= 15 && color <= 44 || color >= 83 && color <= 90, 'Fish feature colors must not borrow water or vegetation shades')
+  if (color >= 91 && color <= 106) continue // Projected shadows and surface wakes use the scene water ramp.
+  assert(color >= 15 && color <= 44 || color >= 83 && color <= 90, 'Fish body and fin colors retain their own palette families')
   for (const environment of ENVIRONMENTS) {
     const palette = paletteForEnvironment(environment.id, PALETTE, { waterColor: '#672b63', timeOfDay: 22 })
     assert.equal(palette[color], PALETTE[color], 'Water and lighting changes preserve fish asset colors')

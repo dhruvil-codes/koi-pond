@@ -4,7 +4,7 @@ import { DEFAULT_OPTIONS, validateOptions, serializeConfig, parseConfig, randomi
 import { generateSnippet, INSTALL_COMMAND } from '../demo/snippets.js'
 
 test('every playground control validates ranges and serializes exactly through JSON and URL hashes', () => {
-  const options = validateOptions({ environment: 'sakura', fishCount: 30, speed: .1, fishSize: 1.8, varieties: ['shusui', 'sanke'], behavior: 'school', waterColor: '#aAbBcC', lilyDensity: 0, lotusCount: 6, particleDensity: 1, rippleIntensity: 2, timeOfDay: 19.25, seed: 4294967295, detail: 'balanced', paused: true, interactive: false })
+  const options = validateOptions({ environment: 'sakura', fishCount: 30, speed: .1, fishSize: 1.8, varieties: ['shusui', 'sanke'], behavior: 'school', waterColor: '#aAbBcC', waterClarity: .35, causticIntensity: .9, lilyDensity: 0, lotusCount: 6, particleDensity: 1, rippleIntensity: 2, timeOfDay: 19.25, seed: 4294967295, detail: 'balanced', paused: true, interactive: false })
   const encoded = serializeConfig(options)
   assert.deepEqual(parseConfig(encoded), options)
   assert.deepEqual(parseConfig(JSON.stringify(options)), options)
@@ -20,6 +20,8 @@ test('every playground control validates ranges and serializes exactly through J
   assert.deepEqual(cloned.varieties, ['kohaku'])
   assert(Object.isFrozen(DEFAULT_OPTIONS) && Object.isFrozen(DEFAULT_OPTIONS.varieties))
   assert.equal(parseConfig(serializeConfig({ environment: 'daylight' })).environment, 'daylight')
+  assert.equal(parseConfig('{"version":1,"options":{"fishCount":3}}').waterClarity, .8, 'Older configurations receive water defaults')
+  for (const key of ['waterClarity', 'causticIntensity']) for (const value of [-.01, 1.01, null, NaN, Infinity]) assert.throws(() => validateOptions({ [key]: value }))
 })
 
 test('random configurations are valid and reproducible, and every integration output contains the exact options', () => {
@@ -38,6 +40,6 @@ test('random configurations are valid and reproducible, and every integration ou
     assert(generateSnippet(config, 'next').startsWith("'use client'"))
     assert(generateSnippet(config, 'react').includes('return () => pond.destroy()'))
   }
-  assert(INSTALL_COMMAND.includes('#v0.3.0'))
+  assert(INSTALL_COMMAND.includes('#v0.4.0'))
   assert(INSTALL_COMMAND.includes('git+https://github.com/dhruvil-codes/koi-pond.git'))
 })

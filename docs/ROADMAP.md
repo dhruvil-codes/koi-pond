@@ -1,6 +1,13 @@
 # Roadmap
 
-The 0.2 implementation adds environment separation, a configurable playground and reproducible settings. Release packaging and npm registry publication remain pending. This list distinguishes the current release scope from possible later work.
+The current release includes environment separation, a configurable playground and reproducible settings. npm registry publication remains pending. This list distinguishes shipped work from possible later work.
+
+## v0.4 — pond depth
+
+- Individual koi depth, smooth surfacing toward food, depth-sorted bodies and submerged shadows.
+- Translucent fin rays, responsive tail effort, water wakes and brief feeding bubbles.
+- Procedural pond-bed stones and plants, animated caustics, water clarity and light controls.
+- Engine-rendered scene previews and a quiet view with keyboard recovery.
 
 ## v0.2 — implementation scope
 
@@ -12,7 +19,7 @@ The 0.2 implementation adds environment separation, a configurable playground an
 - Plain HTML, React/Next.js lifecycle and decorative portfolio background examples.
 - Classic and ESM distribution paths with no runtime dependencies; standalone HTML remains usable offline.
 
-The npm registry package is not published. Install the versioned GitHub source from the `v0.3.0` tag. The public playground is hosted at https://koi-pond.bydhruvil.in/.
+The npm registry package is not published. Install the versioned GitHub source from the `v0.4.0` tag. The public playground is hosted at https://koi-pond.bydhruvil.in/.
 
 ## Future work
 
