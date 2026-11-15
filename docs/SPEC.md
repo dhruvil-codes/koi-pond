@@ -4,7 +4,7 @@ Koi Pond is a dependency-free interactive ASCII pond. It can run from the commit
 
 ## 0.2 scope
 
-- Four canonical procedural environments: `zen` (Zen Garden), `moonlight` (Moonlight), `autumn` (Autumn) and `sakura` (Sakura Spring). The legacy ids `midnight`, `rain` and `dusk` remain accepted by configuration but are not shown as additional choices.
+- Five canonical procedural environments: `zen` (Zen Garden), `moonlight` (Moonlight), `autumn` (Autumn), `sakura` (Sakura Spring) and `daylight` (Daylight). The legacy ids `midnight`, `rain` and `dusk` remain accepted by configuration but are not shown as additional choices.
 - A layered renderer keeps fish and environment responsibilities separate. The renderer paints the environment back layer, fish, then environment foreground. Environment changes do not mutate or reset fish, positions, spine points, speeds, kinds, food or simulation time.
 - A responsive playground provides environment selection, live pond settings, Reset to defaults and Randomize controls, copied install/configuration outputs and a share link.
 - Classic browser and ESM builds, TypeScript declarations, examples and standalone `index.html` are committed. The classic browser file and standalone page work offline. ESM imports defer browser APIs so server-side module loading is safe.
@@ -16,7 +16,7 @@ Koi Pond is a dependency-free interactive ASCII pond. It can run from the commit
 
 | Key | Default | Accepted values |
 | --- | --- | --- |
-| `environment` | `zen` | `zen`, `moonlight`, `autumn`, `sakura`; accepted legacy aliases: `midnight`, `rain`, `dusk` |
+| `environment` | `zen` | `zen`, `moonlight`, `autumn`, `sakura`, `daylight`; accepted legacy aliases: `midnight`, `rain`, `dusk` |
 | `fishCount` | `12` | integer `1`–`30` |
 | `speed` | `1.35` | finite number `0.1`–`3` |
 | `fishSize` | `1` | finite number `0.5`–`1.8` |
@@ -55,7 +55,7 @@ The pond pauses offscreen and while the document is hidden. Reduced-motion prefe
 
 ## Installation status
 
-The npm registry package has not been published. The documented source install is `npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.2.1`; create the `v0.2.1` tag when shipping. The import name after installing the repository package is `@dhruvil-codes/koi-pond`. Do not describe it as a registry-published package.
+The npm registry package has not been published. The documented source install is `npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.3.0`; create the `v0.3.0` tag when shipping. The import name after installing the repository package is `@dhruvil-codes/koi-pond`. Do not describe it as a registry-published package.
 
 ## Release checks
 
@@ -64,7 +64,7 @@ The npm registry package has not been published. The documented source install i
 - Verify distinct procedural scenes, density extremes and seeded repeatability.
 - Exercise multiple controllers, custom-element reconnect, input filtering and disposal.
 - Check playground controls and that generated configuration/install/share output matches the active normalized settings.
-- Review all four scenes at desktop and mobile sizes; check responsive controls, accessibility labels, touch targets, reduced motion and offscreen pause.
+- Review all five scenes at desktop and mobile sizes; check responsive controls, accessibility labels, touch targets, reduced motion and offscreen pause.
 - Build from a clean checkout and inspect package contents. Keep proprietary app archives, personal files and reference imagery out of Git.
 
 The T3 integration remains an isolated experiment at version 0.1.9 and is not applied as part of release checks.

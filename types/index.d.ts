@@ -1,4 +1,4 @@
-export type EnvironmentPreset = 'zen' | 'moonlight' | 'autumn' | 'sakura'
+export type EnvironmentPreset = 'zen' | 'moonlight' | 'autumn' | 'sakura' | 'daylight'
 export type Environment = EnvironmentPreset | 'midnight' | 'rain' | 'dusk'
 export type KoiVariety = 'kohaku' | 'sanke' | 'ogon' | 'shusui'
 export interface PondOptions {

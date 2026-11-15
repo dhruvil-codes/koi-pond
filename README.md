@@ -1,12 +1,12 @@
 # Koi Pond
 
-A dependency-free ASCII koi pond with four procedural environments. Use the standalone playground, embed the classic browser build, or mount a canvas from an application. The library makes no network requests and uses no remote images or runtime dependencies.
+A dependency-free ASCII koi pond with five procedural environments. Use the standalone playground, embed the classic browser build, or mount a canvas from an application. The library makes no network requests and uses no remote images or runtime dependencies.
 
 ## Try the playground
 
 Visit the [live playground](https://koi-pond.bydhruvil.in/) to customize and share a pond.
 
-Open `index.html` directly in a modern browser. The committed page and classic build work offline. The pond fills the screen; its bottom dock opens scene selection, live controls and copyable integration code. Switch between Zen, Moonlight, Autumn and Sakura, tune the pond, reset or randomize settings, and share a reproducible configuration.
+Open `index.html` directly in a modern browser. The committed page and classic build work offline. The pond fills the screen; its bottom dock opens scene selection, live controls and copyable integration code. Switch between Zen, Moonlight, Autumn, Sakura and sunny Daylight, tune the pond, reset or randomize settings, and share a reproducible configuration.
 
 To serve it locally instead, run `npm start`. This starts a development server; it does not publish or deploy the site.
 
@@ -17,7 +17,7 @@ For Vercel hosting and a custom subdomain, follow the [deployment guide](docs/DE
 The npm registry package has not been published. Install the versioned source package with npm:
 
 ```sh
-npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.2.1
+npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.3.0
 ```
 
 The installed package name is `@dhruvil-codes/koi-pond`. The classic browser files are also committed in `dist/` for a direct download or local embed.

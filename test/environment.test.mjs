@@ -4,7 +4,7 @@ import { ENVIRONMENTS, paletteForEnvironment, resolveEnvironment } from '../src/
 import { paintEnvironmentFront } from '../src/environment.js'
 
 assert.deepEqual(ENVIRONMENTS.map(({ id, label }) => [id, label]), [
-  ['zen', 'Zen Garden'], ['moonlight', 'Moonlight'], ['autumn', 'Autumn'], ['sakura', 'Sakura Spring'],
+  ['zen', 'Zen Garden'], ['moonlight', 'Moonlight'], ['autumn', 'Autumn'], ['sakura', 'Sakura Spring'], ['daylight', 'Daylight'],
 ])
 assert(Object.isFrozen(ENVIRONMENTS) && ENVIRONMENTS.every(Object.isFrozen))
 assert.equal(resolveEnvironment('midnight'), 'moonlight')
@@ -36,8 +36,25 @@ for (let i = 0; i < sceneFrames.length; i++) for (let j = i + 1; j < sceneFrames
 assert(countColors(sceneFrames[1], 163, 174) > 120, 'Moonlight has a segmented moon reflection')
 assert(countColors(sceneFrames[2], 151, 162) > 100, 'Autumn has maple canopy and lobed leaves')
 assert(countColors(sceneFrames[3], 139, 150) > countColors(sceneFrames[0], 139, 150), 'Sakura carries a denser flowering canopy')
+const waterLuminance = frame => {
+  let sum = 0, count = 0
+  for (const index of frame.colors) if (index >= 91 && index <= 106) {
+    const color = frame.palette[index]
+    sum += .2126 * parseInt(color.slice(1, 3), 16) + .7152 * parseInt(color.slice(3, 5), 16) + .0722 * parseInt(color.slice(5, 7), 16)
+    count++
+  }
+  return sum / count
+}
+assert(waterLuminance(sceneFrames[4]) > waterLuminance(sceneFrames[0]) + 45, 'Daylight water is materially brighter than Zen water')
+assert(countColors(sceneFrames[4], 163, 174) > 150, 'Daylight has a broad broken sun-glint path and caustic flecks')
+const sunny = barePond({ environment: 'daylight', particleDensity: 0, rippleIntensity: 0 })
+const sunnyStill = renderPond(sunny)
+sunny.time = 5
+const sunnyLater = renderPond(sunny)
+assert(sunnyStill.chars.reduce((count, char, i) => count + (char !== sunnyLater.chars[i] || sunnyStill.colors[i] !== sunnyLater.colors[i]), 0) > 80,
+  'Sun glints shift over time without particles or ripple effects')
 
-for (const id of ['zen', 'moonlight', 'autumn', 'sakura', 'midnight', 'rain', 'dusk']) {
+for (const id of ['zen', 'moonlight', 'autumn', 'sakura', 'daylight', 'midnight', 'rain', 'dusk']) {
   for (const timeOfDay of ['auto', 0, 12, 24]) {
     const palette = paletteForEnvironment(id, PALETTE, { waterColor: '#3a675c', timeOfDay })
     assert.deepEqual(palette.slice(15, 45), PALETTE.slice(15, 45), 'Water and lighting preserve warm koi shades')
@@ -45,9 +62,12 @@ for (const id of ['zen', 'moonlight', 'autumn', 'sakura', 'midnight', 'rain', 'd
   }
 }
 assert.throws(() => paletteForEnvironment('unknown', PALETTE), RangeError)
-const daylight = paletteForEnvironment('zen', PALETTE, { timeOfDay: 12 })
-assert.notDeepEqual(daylight, paletteForEnvironment('zen', PALETTE, { timeOfDay: 0 }))
-assert.notDeepEqual(daylight.slice(0, 15), paletteForEnvironment('zen', PALETTE, { waterColor: '#7b2446', timeOfDay: 12 }).slice(0, 15))
+const zenNoon = paletteForEnvironment('zen', PALETTE, { timeOfDay: 12 })
+assert.notDeepEqual(zenNoon, paletteForEnvironment('zen', PALETTE, { timeOfDay: 0 }))
+assert.notDeepEqual(zenNoon.slice(0, 15), paletteForEnvironment('zen', PALETTE, { waterColor: '#7b2446', timeOfDay: 12 }).slice(0, 15))
+assert.notDeepEqual(paletteForEnvironment('daylight', PALETTE, { waterColor: '#7b2446' }).slice(91, 107), sceneFrames[4].palette.slice(91, 107))
+assert(waterLuminance({ colors: Uint8Array.of(98), palette: paletteForEnvironment('daylight', PALETTE) }) >
+  waterLuminance({ colors: Uint8Array.of(98), palette: paletteForEnvironment('daylight', PALETTE, { timeOfDay: 0 }) }), 'Daylight honors time of day')
 
 const plants = barePond({ lilyDensity: 0, lotusCount: 0 }), leafCounts = []
 for (const lilyDensity of [0, .3, .7, 1]) {
@@ -68,7 +88,7 @@ quiet.time = 18
 assert.deepEqual(renderPond(quiet), still, 'Zero particles and ripples remove Zen surface movement')
 configurePond(quiet, { particleDensity: 1 })
 assert.notDeepEqual(renderPond(quiet), still, 'Particles have a visible effect')
-for (const environment of ['moonlight', 'autumn', 'sakura']) {
+for (const environment of ['moonlight', 'autumn', 'sakura', 'daylight']) {
   const pond = barePond({ environment, particleDensity: 0 }), frame = renderPond(pond), writes = []
   paintEnvironmentFront(pond, frame, (...cell) => writes.push(cell))
   assert.equal(writes.length, 0, 'Particle density zero omits atmosphere particles')
@@ -85,4 +105,4 @@ configurePond(cachePond, { detail: 'balanced' })
 assert.notDeepEqual(renderPond(cachePond).chars, original.chars, 'Detail changes canopy density and fine caustics')
 resizePond(cachePond, 156, 110)
 assert.equal(renderPond(cachePond).chars.length, 156 * 110, 'Resize invalidates cached arrays')
-console.log('Environment art passed: four structural scenes, palette invariants, options, densities, seed/cache invalidation and purity.')
+console.log('Environment art passed: five structural scenes, sunny water/glints, palette invariants, options, densities, seed/cache invalidation and purity.')

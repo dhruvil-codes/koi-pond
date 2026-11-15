@@ -28,6 +28,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Sprout,
+  Sun,
   Waves,
   X,
 } from "lucide-react";
@@ -96,6 +97,14 @@ const scenes = [
     Icon: Flower2,
     color: "#e8b4ce",
   },
+  {
+    id: "daylight",
+    label: "Daylight",
+    short: "Daylight",
+    description: "Sunlit water, warmer greens",
+    Icon: Sun,
+    color: "#ffe3a3",
+  },
 ] as const;
 const aliases: Record<string, EnvironmentPreset> = {
   midnight: "moonlight",
@@ -107,6 +116,7 @@ const waterColors = {
   moonlight: "#09263e",
   autumn: "#342a20",
   sakura: "#35304a",
+  daylight: "#4ca4a3",
 };
 const targets = [
   { id: "javascript", label: "JS" },

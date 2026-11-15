@@ -54,7 +54,11 @@ const panelFits = async label => {
 const sceneButtonsFit = async label => {
   const boxes = await page.locator('.scene-choice').evaluateAll(nodes => nodes.map(node => {
     const rect = node.getBoundingClientRect(), copy = node.querySelector('.scene-copy')
-    return { width: rect.width, height: rect.height, textFits: copy.scrollWidth <= copy.clientWidth + 1 }
+    const style = getComputedStyle(node)
+    const span = Number((style.gridColumnStart + ' ' + style.gridColumnEnd).match(/span (\d+)/)?.[1] || 1)
+    const gap = parseFloat(getComputedStyle(node.parentElement).columnGap)
+    const textRect = copy.getBoundingClientRect()
+    return { width: (rect.width - gap * (span - 1)) / span, height: rect.height, textFits: copy.scrollWidth <= copy.clientWidth + 1 && textRect.top >= rect.top && textRect.bottom <= rect.bottom }
   }))
   check(Math.max(...boxes.map(box => box.width)) - Math.min(...boxes.map(box => box.width)) < 1, label + ': scene buttons fill equal columns')
   check(boxes.every(box => box.textFits) && Math.max(...boxes.map(box => box.height)) - Math.min(...boxes.map(box => box.height)) < 1, label + ': scene captions fit equal-height buttons ' + JSON.stringify(boxes))
@@ -111,7 +115,7 @@ try {
   await page.screenshot({ path: fileURLToPath(new URL('desktop-controls.png', proof)) })
   await close()
   check(await page.locator('#controls').evaluate(node => node === document.activeElement), 'Escape restores focus to dock trigger')
-  for (const environment of ['moonlight', 'autumn', 'sakura', 'zen']) {
+  for (const environment of ['moonlight', 'autumn', 'sakura', 'daylight', 'zen']) {
     await open('environments'); await sceneButtonsFit('Selected ' + environment); await page.locator('[data-environment=' + environment + ']').click()
     const next = await config()
     check(next.environment === environment && ['fishCount', 'speed', 'fishSize', 'behavior', 'varieties'].every(key => JSON.stringify(next[key]) === JSON.stringify(fish[key])), environment + ': environment preserves fish settings')
@@ -145,7 +149,7 @@ try {
   await close()
 
   await open('embed')
-  check((await lastCopy()).includes('#v0.2.1'), 'Dock command action copies the install command directly')
+  check((await lastCopy()).includes('#v0.3.0'), 'Dock command action copies the install command directly')
   for (const target of ['javascript', 'html', 'react', 'next']) {
     await page.locator('[data-target=' + target + ']').click()
     const exact = await page.evaluate(() => {
@@ -156,7 +160,7 @@ try {
     check(exact, target + ': code matches current settings exactly')
   }
   await page.locator('#copy-install').click()
-  check((await lastCopy()).includes('#v0.2.1'), 'Install command copies actual published Git tag')
+  check((await lastCopy()).includes('#v0.3.0'), 'Install command copies actual published Git tag')
   await page.locator('#copy-code').click()
   check((await lastCopy()).includes("'use client'"), 'Copy code uses selected framework')
   await page.locator('[data-target=json]').click(); await page.locator('#copy-json').click()
@@ -199,9 +203,10 @@ try {
   await close()
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => window.__copies.push(text) } }))
 
-  const visibleFood = await page.evaluate(() => {
+  for (const environment of ['zen', 'daylight']) {
+  const visibleFood = await page.evaluate(environment => {
     const canvas = document.querySelector('#pond'), pond = canvas.pond
-    pond.setOptions({ fishCount: 1, fishSize: 1, speed: 3, paused: true, environment: 'zen' }); pond.reset()
+    pond.setOptions({ fishCount: 1, fishSize: 1, speed: 3, paused: true, environment }); pond.reset()
     const context = canvas.getContext('2d'), x = Math.floor(canvas.width * .52), y = Math.floor(canvas.height * .24), radius = 24
     const before = context.getImageData(x - radius, y - radius, radius * 2, radius * 2).data
     pond.feed(.52, .24)
@@ -209,9 +214,10 @@ try {
     let visiblePixels = 0
     for (let i = 0; i < after.length; i += 4) if (Math.max(Math.abs(after[i] - before[i]), Math.abs(after[i + 1] - before[i + 1]), Math.abs(after[i + 2] - before[i + 2])) > 70) visiblePixels++
     return visiblePixels
-  })
-  check(visibleFood > 50, 'Food has a clearly visible footprint on the actual canvas')
-  await page.screenshot({ path: fileURLToPath(new URL('visible-food.png', proof)) })
+  }, environment)
+  check(visibleFood > 50, environment + ': food has a clearly visible footprint on the actual canvas')
+  await page.screenshot({ path: fileURLToPath(new URL('visible-food-' + environment + '.png', proof)) })
+  }
   await page.evaluate(() => document.querySelector('#pond').pond.play())
   await page.waitForFunction(() => document.querySelector('#pond').pond.getState().eaten === 1, null, { timeout: 15000 })
   check(await page.evaluate(() => document.querySelector('#pond').pond.getState().foodCount === 0), 'Live koi consume the visible pellet and remove it')
@@ -239,6 +245,10 @@ try {
     }
     if (label === 'Mobile') await page.screenshot({ path: fileURLToPath(new URL('mobile.png', proof)) })
   }
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.evaluate(() => { const pond = document.querySelector('#pond').pond; pond.resetToDefaults(); pond.pause(); pond.setOptions({ environment: 'daylight' }) })
+  await page.screenshot({ path: fileURLToPath(new URL('daylight.png', proof)), animations: 'disabled' })
+  await open('environments'); await page.screenshot({ path: fileURLToPath(new URL('five-scenes.png', proof)), animations: 'disabled' }); await close()
   const reduced = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
   await reduced.setOffline(true)
   const reducedPage = await reduced.newPage()

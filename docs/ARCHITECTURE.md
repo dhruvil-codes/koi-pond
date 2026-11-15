@@ -53,7 +53,7 @@ Static water, rocks and vegetation are cached separately from fish. Dirty canvas
 
 ## Extending it
 
-The four selectable presets are `zen`, `moonlight`, `autumn` and `sakura`. Legacy configuration ids `midnight`, `rain` and `dusk` are accepted for compatibility, but are not additional preset choices. Environment artwork is procedural and deterministic for a given normalized configuration and simulation state.
+The five selectable presets are `zen`, `moonlight`, `autumn`, `sakura` and `daylight`. Daylight adds sunlit turquoise water, warm glints and brighter foliage. Legacy configuration ids `midnight`, `rain` and `dusk` are accepted for compatibility, but are not additional preset choices. Environment artwork is procedural and deterministic for a given normalized configuration and simulation state.
 
 For a new environment, add metadata and palette treatment in the environment modules, validate any new setting, update the playground and public types, and cover state continuity. Keep environment rendering from mutating fish or simulation state. For a new fish behavior, update the fish and core layers. Host integrations should reuse the canvas controller, keep their own lifecycle cleanup, and state which platforms have been checked.
 

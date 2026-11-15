@@ -1,4 +1,4 @@
-/*! Koi Pond v0.2.1 | Copyright 2026 Dhruvil | MIT License */
+/*! Koi Pond v0.3.0 | Copyright 2026 Dhruvil | MIT License */
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n))
 const wrap = a => Math.atan2(Math.sin(a), Math.cos(a))
 const hash = (x, y) => ((Math.imul(x + 31, 374761393) ^ Math.imul(y + 19, 668265263)) >>> 0) / 4294967296
@@ -16,7 +16,7 @@ const PALETTE = ['#000000', '#0b0d0c', '#161b17', '#242923', '#55574e', '#8d8c7d
 const VARIETIES = Object.freeze(['kohaku', 'sanke', 'ogon', 'shusui'])
 const DEFAULT_OPTIONS = Object.freeze({ environment: 'zen', fishCount: 12, speed: 1.35, fishSize: 1, varieties: VARIETIES, behavior: 'wander', waterColor: null, lilyDensity: .7, lotusCount: 2, particleDensity: .45, rippleIntensity: 1, timeOfDay: 'auto', seed: 2026, lilies: true, lotus: true, detail: 'fine', paused: false, interactive: true })
 const optionKeys = new Set(Object.keys(DEFAULT_OPTIONS))
-const configEnvironments = ['zen', 'moonlight', 'autumn', 'sakura', 'midnight', 'rain', 'dusk']
+const configEnvironments = ['zen', 'moonlight', 'autumn', 'sakura', 'daylight', 'midnight', 'rain', 'dusk']
 
 function validateOptions(partial = {}, current = DEFAULT_OPTIONS) {
   if (!partial || typeof partial !== 'object' || Array.isArray(partial)) throw new TypeError('Options must be an object')
@@ -63,7 +63,7 @@ function randomizeConfig(seed = Math.floor(Math.random() * 4294967296)) {
   const choose = values => values[Math.floor(next() * values.length)]
   const round = n => Math.round(n * 100) / 100
   const varieties = VARIETIES.filter(() => next() > .25)
-  return validateOptions({ environment: choose(configEnvironments.slice(0, 4)), fishCount: 6 + Math.floor(next() * 15), speed: round(.5 + next() * 1.4), fishSize: round(.75 + next() * .55), varieties: varieties.length ? varieties : ['kohaku'], behavior: choose(['wander', 'school', 'circle']), lilyDensity: round(.25 + next() * .65), lotusCount: 1 + Math.floor(next() * 4), particleDensity: round(.2 + next() * .6), rippleIntensity: round(.5 + next()), seed })
+  return validateOptions({ environment: choose(configEnvironments.slice(0, 5)), fishCount: 6 + Math.floor(next() * 15), speed: round(.5 + next() * 1.4), fishSize: round(.75 + next() * .55), varieties: varieties.length ? varieties : ['kohaku'], behavior: choose(['wander', 'school', 'circle']), lilyDensity: round(.25 + next() * .65), lotusCount: 1 + Math.floor(next() * 4), particleDensity: round(.2 + next() * .6), rippleIntensity: round(.5 + next()), seed })
 }
 
 
@@ -72,6 +72,7 @@ const ENVIRONMENTS = Object.freeze([
   { id: 'moonlight', label: 'Moonlight', description: 'Blue water, broken moonlight and drifting fireflies' },
   { id: 'autumn', label: 'Autumn', description: 'Charcoal water, amber light and falling maple leaves' },
   { id: 'sakura', label: 'Sakura Spring', description: 'Violet water and a canopy of flowering cherry' },
+  { id: 'daylight', label: 'Daylight', description: 'Turquoise water, golden sunlight and lush summer leaves' },
 ].map(envEntry => Object.freeze(envEntry)))
 
 const envSceneColors = {
@@ -79,6 +80,7 @@ const envSceneColors = {
   moonlight: ['001020', '0d4563', '172532', '7d8b9c', '243a28', '6d8648', '182331', '4c4c62', '753c68', 'f0a2ce', '79532e', 'd8ab69', '174a6c', 'e3f7f0', '2b4931', '81965a'],
   autumn: ['151e20', '4b4b38', '292b2c', 'a29a7e', '424019', 'a8a446', '291c16', '7a4125', 'a3481d', 'ffb758', '9e2711', 'ff9d22', '68421f', 'fbc783', '564823', 'c4a34b'],
   sakura: ['151d31', '55455f', '2c2c3a', 'a397b4', '303c28', '8a9b55', '282032', '75566c', 'a14f7e', 'ffc1d8', 'ad5373', 'f5aec9', '67405e', 'ffc4d5', '41432d', 'b1a168'],
+  daylight: ['176f7e', '81d8c8', '394e50', 'a5ac9b', '33653b', 'b1d978', '3d4640', '9b7c55', 'a6425d', 'ffd2bf', '5b492d', 'e8c16d', '6fbac5', 'fff4ba', '4b6030', 'c7cf70'],
 }
 
 function resolveEnvironment(id) {
@@ -105,9 +107,9 @@ function paletteForEnvironment(id, basePalette, options = {}) {
   for (const [envStart, envEnd, envCount] of [[2, 3, 12], [4, 5, 12], [6, 7, 8], [8, 9, 12], [10, 11, 12], [12, 13, 12], [14, 15, 10]]) {
     envPalette.push(...ramp(envColors[envStart], envColors[envEnd], envCount).map(envLight))
   }
-  envPalette.push(...ramp('59622b', 'fff6a1', 6).map(envLight))
+  envPalette.push(...ramp(envId === 'daylight' ? 'a98336' : '59622b', envId === 'daylight' ? 'fff3bb' : 'fff6a1', 6).map(envLight))
   if (envId !== 'zen' || envHour !== null) {
-    const envPlantTint = envId === 'moonlight' ? '23405a' : envId === 'autumn' ? '9a732d' : envId === 'sakura' ? '50526c' : '244237'
+    const envPlantTint = envId === 'moonlight' ? '23405a' : envId === 'autumn' ? '9a732d' : envId === 'sakura' ? '50526c' : envId === 'daylight' ? '8e9f49' : '244237'
     for (let envI = 45; envI <= 82; envI++) envPalette[envI] = envLight(envMix(envPalette[envI].slice(1), envPlantTint, envId === 'moonlight' ? .22 : .12))
   }
   return envPalette
@@ -314,6 +316,9 @@ function envBuild(pond, key) {
       backPut(x, y, ' ', 91 + Math.floor(light * 14), 90 + Math.round(light * 105))
       const contour = Math.sin(x * .055 + y * .105 + bend + waves[0] * 1.8)
       if (contour > .957 && grain > .24) backPut(x, y, hash(x, y) > .65 ? '-' : '.', 98 + Math.floor(light * 6), 150)
+      if (scene === 'daylight' && fine && x % 3 === 0 && y % 2 === 0 && contour > .83 && hash(x + seed, y + 53) > .72) {
+        backPut(x, y, '.', 166 + Math.floor(hash(x, y + seed) * 5), 82)
+      }
       if (fine && x % 3 === 0 && y % 2 === 0 && grain > .65) shimmer.push([x, y, x * .027 + y * .09 + grain * 5])
     }
   }
@@ -366,6 +371,24 @@ function envRing(pond, put, cx, cy, radius, color, strength = 1) {
 
 function envReflection(pond, put, scene) {
   if (scene === 'zen') return
+  if (scene === 'daylight') {
+    const { columns: cols, rows, time } = pond, seed = pond.options.seed ?? 2026
+    // A broadening trail of broken, sun-warmed dashes across the open water.
+    for (let y = 0; y < rows * .72; y++) {
+      const t = y / (rows * .72)
+      if (hash(y + seed, 718) < .19 + t * .18) continue
+      const center = cols * (.72 - t * .16) + Math.sin(y * .27 + time * .38) * cols * .009
+      const width = cols * (.012 + t * .065)
+      for (let dx = -width; dx <= width; dx++) {
+        const x = Math.round(center + dx)
+        const fleck = hash(x + Math.floor(time * .7), y + seed)
+        if (fleck < .69 + Math.abs(dx) / width * .17) continue
+        const light = clamp(.48 + (1 - Math.abs(dx) / width) * .32 + fleck * .2, 0, .99)
+        put(x, y, fleck > .94 ? '*' : '-', 163 + Math.floor(light * 11), Math.round(110 + light * 110))
+      }
+    }
+    return
+  }
   const cols = pond.columns, rows = pond.rows, time = pond.time || 0, center = scene === 'autumn' ? .57 : .615
   const reach = scene === 'moonlight' ? .49 : .58
   for (let y = 0; y < rows * reach; y++) {
@@ -420,6 +443,8 @@ function paintEnvironmentFront(pond, frame, put) {
       const glow = .5 + .5 * Math.sin(time * .9 + phase), color = 185 + Math.floor(glow * 5)
       put(x, y, '.', color, Math.round(100 + glow * 130))
       if (glow > .72) { put(x - 1, y, '.', 185, 40); put(x + 1, y, '.', 185, 40) }
+    } else if (scene === 'daylight') {
+      put(x, y, i % 4 ? '.' : '*', 185 + i % 6, 140 + i % 4 * 20)
     } else if (scene === 'autumn') envFoliage(pond, put, x, y, Math.max(2.1, cols * .013), true, phase + Math.sin(time * .12) * .2)
     else if (scene === 'sakura') {
       put(x, y, i % 2 ? ',' : '/', 145 + i % 6, 220)

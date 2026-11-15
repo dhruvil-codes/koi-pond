@@ -19,6 +19,7 @@ test('every playground control validates ranges and serializes exactly through J
   const varieties = ['kohaku']; const cloned = validateOptions({ varieties }); varieties.push('ogon')
   assert.deepEqual(cloned.varieties, ['kohaku'])
   assert(Object.isFrozen(DEFAULT_OPTIONS) && Object.isFrozen(DEFAULT_OPTIONS.varieties))
+  assert.equal(parseConfig(serializeConfig({ environment: 'daylight' })).environment, 'daylight')
 })
 
 test('random configurations are valid and reproducible, and every integration output contains the exact options', () => {
@@ -37,6 +38,6 @@ test('random configurations are valid and reproducible, and every integration ou
     assert(generateSnippet(config, 'next').startsWith("'use client'"))
     assert(generateSnippet(config, 'react').includes('return () => pond.destroy()'))
   }
-  assert(INSTALL_COMMAND.includes('#v0.2.1'))
+  assert(INSTALL_COMMAND.includes('#v0.3.0'))
   assert(INSTALL_COMMAND.includes('git+https://github.com/dhruvil-codes/koi-pond.git'))
 })

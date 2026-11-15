@@ -27,7 +27,7 @@ assert.deepEqual(original.fish.slice(0, 4).map(f => f.scale), [.62, .92, .72, .6
 
 feed(original, 55, 15)
 const references = [...original.fish], geometry = structuredClone(original.fish), food = structuredClone(original.food), time = original.time
-for (const environment of ['moonlight', 'autumn', 'sakura', 'zen', 'midnight', 'rain', 'dusk']) {
+for (const environment of ['moonlight', 'autumn', 'sakura', 'daylight', 'zen', 'midnight', 'rain', 'dusk']) {
   configurePond(original, { environment, waterColor: '#123456', lilyDensity: .3, lotusCount: 4, particleDensity: .7, rippleIntensity: .2, timeOfDay: 18, lilies: false, lotus: false, detail: 'balanced' })
   renderPond(original)
   assert.deepEqual(original.fish, geometry, 'Environment updates and painting never alter fish state')

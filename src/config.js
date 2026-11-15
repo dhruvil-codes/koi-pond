@@ -1,7 +1,7 @@
 export const VARIETIES = Object.freeze(['kohaku', 'sanke', 'ogon', 'shusui'])
 export const DEFAULT_OPTIONS = Object.freeze({ environment: 'zen', fishCount: 12, speed: 1.35, fishSize: 1, varieties: VARIETIES, behavior: 'wander', waterColor: null, lilyDensity: .7, lotusCount: 2, particleDensity: .45, rippleIntensity: 1, timeOfDay: 'auto', seed: 2026, lilies: true, lotus: true, detail: 'fine', paused: false, interactive: true })
 const optionKeys = new Set(Object.keys(DEFAULT_OPTIONS))
-const configEnvironments = ['zen', 'moonlight', 'autumn', 'sakura', 'midnight', 'rain', 'dusk']
+const configEnvironments = ['zen', 'moonlight', 'autumn', 'sakura', 'daylight', 'midnight', 'rain', 'dusk']
 
 export function validateOptions(partial = {}, current = DEFAULT_OPTIONS) {
   if (!partial || typeof partial !== 'object' || Array.isArray(partial)) throw new TypeError('Options must be an object')
@@ -48,5 +48,5 @@ export function randomizeConfig(seed = Math.floor(Math.random() * 4294967296)) {
   const choose = values => values[Math.floor(next() * values.length)]
   const round = n => Math.round(n * 100) / 100
   const varieties = VARIETIES.filter(() => next() > .25)
-  return validateOptions({ environment: choose(configEnvironments.slice(0, 4)), fishCount: 6 + Math.floor(next() * 15), speed: round(.5 + next() * 1.4), fishSize: round(.75 + next() * .55), varieties: varieties.length ? varieties : ['kohaku'], behavior: choose(['wander', 'school', 'circle']), lilyDensity: round(.25 + next() * .65), lotusCount: 1 + Math.floor(next() * 4), particleDensity: round(.2 + next() * .6), rippleIntensity: round(.5 + next()), seed })
+  return validateOptions({ environment: choose(configEnvironments.slice(0, 5)), fishCount: 6 + Math.floor(next() * 15), speed: round(.5 + next() * 1.4), fishSize: round(.75 + next() * .55), varieties: varieties.length ? varieties : ['kohaku'], behavior: choose(['wander', 'school', 'circle']), lilyDensity: round(.25 + next() * .65), lotusCount: 1 + Math.floor(next() * 4), particleDensity: round(.2 + next() * .6), rippleIntensity: round(.5 + next()), seed })
 }

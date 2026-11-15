@@ -15,7 +15,7 @@ test('standalone and browser distributions reproduce with no runtime dependencie
   const module = await import('../dist/koi-pond.js')
   assert.equal(typeof module.createKoiPond, 'function')
   assert.equal(typeof module.registerKoiPond, 'function')
-  assert.equal(module.ENVIRONMENTS.length, 4)
+  assert.equal(module.ENVIRONMENTS.length, 5)
   assert.equal(typeof module.parseConfig, 'function')
   assert.equal(typeof module.serializeConfig, 'function')
   const context = createContext({})

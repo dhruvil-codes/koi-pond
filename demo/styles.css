@@ -648,6 +648,10 @@ pre:focus-visible {
   grid-template-columns: 1fr 1fr;
   gap: 9px;
 }
+.scene-choice[data-environment="daylight"] {
+  grid-column: span 2;
+  --color-kumo-brand: #856528;
+}
 .pond-popover .scene-choice {
   position: relative;
   width: 100%;
@@ -1175,11 +1179,22 @@ html[data-input="keyboard"] .pond-popover {
     min-height: 33px;
   }
   .scene-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
   }
   .pond-popover .scene-choice {
-    height: 66px;
-    min-height: 66px;
+    height: 80px;
+    min-height: 80px;
+  }
+  .scene-choice > span:last-child {
+    gap: 8px;
+  }
+  .scene-choice .scene-symbol {
+    width: 22px;
+  }
+  .scene-choice .scene-symbol svg {
+    width: 21px;
+    height: 21px;
   }
   .more-popover {
     width: min(520px, calc(100vw - 24px));

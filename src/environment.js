@@ -201,6 +201,9 @@ function envBuild(pond, key) {
       backPut(x, y, ' ', 91 + Math.floor(light * 14), 90 + Math.round(light * 105))
       const contour = Math.sin(x * .055 + y * .105 + bend + waves[0] * 1.8)
       if (contour > .957 && grain > .24) backPut(x, y, hash(x, y) > .65 ? '-' : '.', 98 + Math.floor(light * 6), 150)
+      if (scene === 'daylight' && fine && x % 3 === 0 && y % 2 === 0 && contour > .83 && hash(x + seed, y + 53) > .72) {
+        backPut(x, y, '.', 166 + Math.floor(hash(x, y + seed) * 5), 82)
+      }
       if (fine && x % 3 === 0 && y % 2 === 0 && grain > .65) shimmer.push([x, y, x * .027 + y * .09 + grain * 5])
     }
   }
@@ -253,6 +256,24 @@ function envRing(pond, put, cx, cy, radius, color, strength = 1) {
 
 function envReflection(pond, put, scene) {
   if (scene === 'zen') return
+  if (scene === 'daylight') {
+    const { columns: cols, rows, time } = pond, seed = pond.options.seed ?? 2026
+    // A broadening trail of broken, sun-warmed dashes across the open water.
+    for (let y = 0; y < rows * .72; y++) {
+      const t = y / (rows * .72)
+      if (hash(y + seed, 718) < .19 + t * .18) continue
+      const center = cols * (.72 - t * .16) + Math.sin(y * .27 + time * .38) * cols * .009
+      const width = cols * (.012 + t * .065)
+      for (let dx = -width; dx <= width; dx++) {
+        const x = Math.round(center + dx)
+        const fleck = hash(x + Math.floor(time * .7), y + seed)
+        if (fleck < .69 + Math.abs(dx) / width * .17) continue
+        const light = clamp(.48 + (1 - Math.abs(dx) / width) * .32 + fleck * .2, 0, .99)
+        put(x, y, fleck > .94 ? '*' : '-', 163 + Math.floor(light * 11), Math.round(110 + light * 110))
+      }
+    }
+    return
+  }
   const cols = pond.columns, rows = pond.rows, time = pond.time || 0, center = scene === 'autumn' ? .57 : .615
   const reach = scene === 'moonlight' ? .49 : .58
   for (let y = 0; y < rows * reach; y++) {
@@ -307,6 +328,8 @@ export function paintEnvironmentFront(pond, frame, put) {
       const glow = .5 + .5 * Math.sin(time * .9 + phase), color = 185 + Math.floor(glow * 5)
       put(x, y, '.', color, Math.round(100 + glow * 130))
       if (glow > .72) { put(x - 1, y, '.', 185, 40); put(x + 1, y, '.', 185, 40) }
+    } else if (scene === 'daylight') {
+      put(x, y, i % 4 ? '.' : '*', 185 + i % 6, 140 + i % 4 * 20)
     } else if (scene === 'autumn') envFoliage(pond, put, x, y, Math.max(2.1, cols * .013), true, phase + Math.sin(time * .12) * .2)
     else if (scene === 'sakura') {
       put(x, y, i % 2 ? ',' : '/', 145 + i % 6, 220)

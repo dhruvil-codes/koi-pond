@@ -5,6 +5,7 @@ export const ENVIRONMENTS = Object.freeze([
   { id: 'moonlight', label: 'Moonlight', description: 'Blue water, broken moonlight and drifting fireflies' },
   { id: 'autumn', label: 'Autumn', description: 'Charcoal water, amber light and falling maple leaves' },
   { id: 'sakura', label: 'Sakura Spring', description: 'Violet water and a canopy of flowering cherry' },
+  { id: 'daylight', label: 'Daylight', description: 'Turquoise water, golden sunlight and lush summer leaves' },
 ].map(envEntry => Object.freeze(envEntry)))
 
 const envSceneColors = {
@@ -12,6 +13,7 @@ const envSceneColors = {
   moonlight: ['001020', '0d4563', '172532', '7d8b9c', '243a28', '6d8648', '182331', '4c4c62', '753c68', 'f0a2ce', '79532e', 'd8ab69', '174a6c', 'e3f7f0', '2b4931', '81965a'],
   autumn: ['151e20', '4b4b38', '292b2c', 'a29a7e', '424019', 'a8a446', '291c16', '7a4125', 'a3481d', 'ffb758', '9e2711', 'ff9d22', '68421f', 'fbc783', '564823', 'c4a34b'],
   sakura: ['151d31', '55455f', '2c2c3a', 'a397b4', '303c28', '8a9b55', '282032', '75566c', 'a14f7e', 'ffc1d8', 'ad5373', 'f5aec9', '67405e', 'ffc4d5', '41432d', 'b1a168'],
+  daylight: ['176f7e', '81d8c8', '394e50', 'a5ac9b', '33653b', 'b1d978', '3d4640', '9b7c55', 'a6425d', 'ffd2bf', '5b492d', 'e8c16d', '6fbac5', 'fff4ba', '4b6030', 'c7cf70'],
 }
 
 export function resolveEnvironment(id) {
@@ -38,9 +40,9 @@ export function paletteForEnvironment(id, basePalette, options = {}) {
   for (const [envStart, envEnd, envCount] of [[2, 3, 12], [4, 5, 12], [6, 7, 8], [8, 9, 12], [10, 11, 12], [12, 13, 12], [14, 15, 10]]) {
     envPalette.push(...ramp(envColors[envStart], envColors[envEnd], envCount).map(envLight))
   }
-  envPalette.push(...ramp('59622b', 'fff6a1', 6).map(envLight))
+  envPalette.push(...ramp(envId === 'daylight' ? 'a98336' : '59622b', envId === 'daylight' ? 'fff3bb' : 'fff6a1', 6).map(envLight))
   if (envId !== 'zen' || envHour !== null) {
-    const envPlantTint = envId === 'moonlight' ? '23405a' : envId === 'autumn' ? '9a732d' : envId === 'sakura' ? '50526c' : '244237'
+    const envPlantTint = envId === 'moonlight' ? '23405a' : envId === 'autumn' ? '9a732d' : envId === 'sakura' ? '50526c' : envId === 'daylight' ? '8e9f49' : '244237'
     for (let envI = 45; envI <= 82; envI++) envPalette[envI] = envLight(envMix(envPalette[envI].slice(1), envPlantTint, envId === 'moonlight' ? .22 : .12))
   }
   return envPalette

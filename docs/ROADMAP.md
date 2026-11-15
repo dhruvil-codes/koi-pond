@@ -4,7 +4,7 @@ The 0.2 implementation adds environment separation, a configurable playground an
 
 ## v0.2 — implementation scope
 
-- Four canonical procedural environments: Zen Garden, Moonlight, Autumn and Sakura Spring.
+- Five procedural environments: Zen Garden, Moonlight, Autumn, Sakura Spring and sunny Daylight.
 - Separate fish behavior, environment painting, configuration and browser lifecycle modules.
 - Normalized settings, versioned JSON serialization, validation and seeded randomization.
 - Controller methods for reading/replacing settings, resetting to defaults and randomizing.
@@ -12,7 +12,7 @@ The 0.2 implementation adds environment separation, a configurable playground an
 - Plain HTML, React/Next.js lifecycle and decorative portfolio background examples.
 - Classic and ESM distribution paths with no runtime dependencies; standalone HTML remains usable offline.
 
-The npm registry package is not published. Install the versioned GitHub source from the `v0.2.1` tag. The public playground is hosted at https://koi-pond.bydhruvil.in/.
+The npm registry package is not published. Install the versioned GitHub source from the `v0.3.0` tag. The public playground is hosted at https://koi-pond.bydhruvil.in/.
 
 ## Future work
 

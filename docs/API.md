@@ -19,7 +19,7 @@ The public configuration keys and defaults are:
 
 | Key | Default | Accepted values |
 | --- | --- | --- |
-| `environment` | `zen` | `zen`, `moonlight`, `autumn`, `sakura`; legacy ids `midnight`, `rain`, `dusk` are accepted |
+| `environment` | `zen` | `zen`, `moonlight`, `autumn`, `sakura`, `daylight`; legacy ids `midnight`, `rain`, `dusk` are accepted |
 | `fishCount` | `12` | integer from `1` to `30` |
 | `speed` | `1.35` | finite number from `0.1` to `3` |
 | `fishSize` | `1` | finite number from `0.5` to `1.8` |
@@ -40,7 +40,7 @@ The public configuration keys and defaults are:
 
 Custom-element attributes use kebab case for multiword names (`fish-count`, `fish-size`, `water-color`, `lily-density`, `lotus-count`, `particle-density`, `ripple-intensity`, `time-of-day`). Boolean values are written explicitly, for example `interactive="false"`. Use the controller for array-valued `varieties`. Invalid settings are rejected atomically.
 
-The canonical scene choices are Zen Garden (`zen`), Moonlight (`moonlight`), Autumn (`autumn`) and Sakura Spring (`sakura`). The older ids remain accepted for configuration compatibility and are not additional preset choices.
+The canonical scene choices are Zen Garden (`zen`), Moonlight (`moonlight`), Autumn (`autumn`), Sakura Spring (`sakura`) and sunny Daylight (`daylight`). The older ids remain accepted for configuration compatibility and are not additional preset choices.
 
 ## Canvas controller
 
