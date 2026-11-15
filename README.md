@@ -17,7 +17,7 @@ For Vercel hosting and a custom subdomain, follow the [deployment guide](docs/DE
 The npm registry package has not been published. Install the versioned source package with npm:
 
 ```sh
-npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.2.0
+npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.2.1
 ```
 
 The installed package name is `@dhruvil-codes/koi-pond`. The classic browser files are also committed in `dist/` for a direct download or local embed.

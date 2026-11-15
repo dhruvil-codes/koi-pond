@@ -182,7 +182,14 @@ function ChoiceControl({
         >
           <SelectValue />
         </SelectTrigger>
-        <SelectContent className="pond-select" position="popper" sideOffset={6}>
+        <SelectContent
+          className="pond-select"
+          position="popper"
+          side="top"
+          align="start"
+          sideOffset={6}
+          collisionPadding={{ top: 12, right: 12, bottom: 96, left: 12 }}
+        >
           {choices.map((choice) => (
             <SelectItem key={choice.value} value={choice.value}>
               {choice.label}
@@ -423,7 +430,11 @@ export default function App() {
   return (
     <PanelIsOpen.Provider value={open !== null}>
       <TooltipProvider delayDuration={450} skipDelayDuration={250}>
-        <main className="pond-playground" aria-label="Koi Pond playground">
+        <main
+          className="pond-playground"
+          data-panel-open={open || undefined}
+          aria-label="Koi Pond playground"
+        >
           <canvas
             ref={canvas}
             id="pond"
@@ -816,7 +827,7 @@ export default function App() {
                 open={open}
                 setOpen={setOpen}
                 title="Take this pond with you"
-                hint="Copy the install command and view integration code"
+                hint="Copy install command"
                 className="embed-popover"
                 trigger={
                   <Button

@@ -86,7 +86,19 @@ export function renderPond(pond) {
   }
   paintEnvironmentBack(pond, frame, put)
   fishPaint(pond, frame, put)
-  for (const pellet of pond.food) put(pellet.x, pellet.y, pond.time % .8 < .4 ? '.' : '*', 38)
   paintEnvironmentFront(pond, frame, put)
+  // Food floats above the foreground pads and reeds. Keep its footprint visible
+  // at small grids, while scaling gently with the larger detailed canvases.
+  const radius = clamp(columns * .014, 2.1, 4)
+  for (const pellet of pond.food) {
+    const left = Math.floor(pellet.x - radius), right = Math.ceil(pellet.x + radius)
+    const top = Math.floor(pellet.y - radius / pond.aspect), bottom = Math.ceil(pellet.y + radius / pond.aspect)
+    for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++) {
+      const distance = Math.hypot(x - pellet.x, (y - pellet.y) * pond.aspect)
+      if (distance > radius) continue
+      const center = distance < radius * .46
+      put(x, y, center ? '@' : distance < radius * .76 ? 'o' : '*', center ? 22 : 37, center ? 255 : 230)
+    }
+  }
   return frame
 }

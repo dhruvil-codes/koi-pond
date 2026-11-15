@@ -72,7 +72,8 @@ export async function build() {
   const source = core + '\n' + (await Promise.all(['src/pond.js', 'src/element.js'].map(read))).map(stripModule).join('\n')
   const names = 'createKoiPond, registerKoiPond, KoiPondElement, ENVIRONMENTS, DEFAULT_OPTIONS, VARIETIES, validateOptions, serializeConfig, parseConfig, randomizeConfig'
   const register = "if (globalThis.customElements && globalThis.HTMLElement) registerKoiPond();"
-  const banner = '/*! Koi Pond v0.2.0 | Copyright 2026 Dhruvil | MIT License */\n'
+  const { version } = JSON.parse(await read('package.json'))
+  const banner = `/*! Koi Pond v${version} | Copyright 2026 Dhruvil | MIT License */\n`
   const esm = `${banner}${source}\nexport { ${names} };\n${register}\n`
   const classic = `${banner}(() => {\n'use strict';\n${source}\nglobalThis.KoiPond = Object.freeze({ ${names} });\n${register}\n})();\n`
   await mkdir(new URL('dist/', root), { recursive: true })

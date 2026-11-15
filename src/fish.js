@@ -85,10 +85,6 @@ export function fishAdvance(pond, dt, disturb) {
       const d = Math.hypot(p.x - fish.x, (p.y - fish.y) * pond.aspect)
       if (d < nearest) { nearest = d; target = p; pellet = p }
     }
-    if (pellet && nearest < Math.max(.8, fishLength(pond, fish) * .075)) {
-      pond.food.splice(pond.food.indexOf(pellet), 1); pond.eaten++
-      disturb(pond, pellet.x, pellet.y, .3); pellet = undefined
-    }
     let hx = target.x - fish.x, hy = (target.y - fish.y) * pond.aspect
     const toward = Math.hypot(hx, hy) || 1
     hx /= toward; hy /= toward
@@ -103,20 +99,30 @@ export function fishAdvance(pond, dt, disturb) {
       const safe = (fishLength(pond, fish) + fishLength(pond, other)) * .25
       if (d > .01 && d < safe) { const push = (1 - d / safe) * (pellet ? .35 : 1.1); hx += dx / d * push; hy += dy / d * push }
     }
-    const edge = fishLength(pond, fish) * .7
-    if (fish.x < edge) hx += (edge - fish.x) / edge * 2.5
-    if (fish.x > pond.columns - edge) hx -= (fish.x - pond.columns + edge) / edge * 2.5
+    const length = fishLength(pond, fish), edge = length * .7
+    // A reachable pellet near a bank takes precedence over the usual cruising margin.
+    const bankPush = pellet ? clamp(nearest / (length * 1.5), 0, 1) : 1
+    if (fish.x < edge) hx += (edge - fish.x) / edge * 2.5 * bankPush
+    if (fish.x > pond.columns - edge) hx -= (fish.x - pond.columns + edge) / edge * 2.5 * bankPush
     const edgeY = edge / pond.aspect
-    if (fish.y < edgeY) hy += (edgeY - fish.y) / edgeY * 2.5
-    if (fish.y > pond.rows - edgeY) hy -= (fish.y - pond.rows + edgeY) / edgeY * 2.5
+    if (fish.y < edgeY) hy += (edgeY - fish.y) / edgeY * 2.5 * bankPush
+    if (fish.y > pond.rows - edgeY) hy -= (fish.y - pond.rows + edgeY) / edgeY * 2.5 * bankPush
     const error = wrap(Math.atan2(hy, hx) - fish.angle)
-    const desiredTurn = clamp(error * 1.5, -.8, .8)
-    fish.turnVelocity += (desiredTurn - fish.turnVelocity) * (1 - Math.exp(-dt * 3.5))
+    const desiredTurn = clamp(error * (pellet ? 2 : 1.5), pellet ? -1.5 : -.8, pellet ? 1.5 : .8)
+    fish.turnVelocity += clamp((desiredTurn - fish.turnVelocity) * (1 - Math.exp(-dt * (pellet ? 3 : 3.5))), -5 * dt, 5 * dt)
     fish.angle = wrap(fish.angle + fish.turnVelocity * dt)
-    const speedTarget = fish.speed * pond.columns / 100 * pond.options.speed * (pellet ? 1.55 : .88 + .08 * Math.sin(pond.time * .6 + fish.phase))
-    fish.currentSpeed += (speedTarget - fish.currentSpeed) * (1 - Math.exp(-dt * 1.8))
+    const arrival = pellet ? clamp(nearest / (length * 1.2), .12, 1) * clamp((1 + Math.cos(error)) * .5, .12, 1) : 1
+    const cruise = fish.speed * pond.columns / 100 * pond.options.speed
+    const speedTarget = pellet ? Math.max(cruise * arrival, pond.columns * .001)
+      : cruise * (.88 + .08 * Math.sin(pond.time * .6 + fish.phase))
+    fish.currentSpeed += (speedTarget - fish.currentSpeed) * (1 - Math.exp(-dt * (pellet ? 3.5 : 1.8)))
     fish.x = clamp(fish.x + Math.cos(fish.angle) * fish.currentSpeed * dt, .5, pond.columns - .5)
     fish.y = clamp(fish.y + Math.sin(fish.angle) * fish.currentSpeed * dt / pond.aspect, .5, pond.rows - .5)
+    // Only a head at the pellet can eat it; distance is measured in aspect-corrected cells.
+    if (pellet && Math.hypot(pellet.x - fish.x, (pellet.y - fish.y) * pond.aspect) < Math.max(.8, length * .075)) {
+      pond.food.splice(pond.food.indexOf(pellet), 1); pond.eaten++
+      disturb(pond, pellet.x, pellet.y, .3)
+    }
     fish.swimPhase += dt * (1.5 + fish.currentSpeed / pond.columns * 38)
     fishFollowSpine(pond, fish)
   }

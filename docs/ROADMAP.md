@@ -12,7 +12,7 @@ The 0.2 implementation adds environment separation, a configurable playground an
 - Plain HTML, React/Next.js lifecycle and decorative portfolio background examples.
 - Classic and ESM distribution paths with no runtime dependencies; standalone HTML remains usable offline.
 
-The npm registry package is not published. A GitHub-source installation command is documented for the `v0.2.0` tag to be created when shipping. A hosted deployment URL is not part of these docs.
+The npm registry package is not published. Install the versioned GitHub source from the `v0.2.1` tag. The public playground is hosted at https://koi-pond.bydhruvil.in/.
 
 ## Future work
 

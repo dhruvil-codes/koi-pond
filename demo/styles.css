@@ -169,7 +169,7 @@ pre:focus-visible {
 .menu-button:active {
   transform: scale(0.97);
 }
-.dock-button[data-state="open"] {
+.dock-button[aria-expanded="true"] {
   outline: 1px solid #ffffff8a;
   outline-offset: 3px;
 }
@@ -185,7 +185,7 @@ pre:focus-visible {
   opacity: 0.65;
   transition: transform 150ms var(--ease-out);
 }
-.scene-trigger[data-state="open"] .chevron {
+.scene-trigger[aria-expanded="true"] .chevron {
   transform: rotate(180deg);
 }
 .scene-dot {
@@ -413,12 +413,47 @@ pre:focus-visible {
   background: #30382c;
   color: #f3f2ee;
   box-shadow: 0 8px 24px #0005;
+  padding: 5px;
+  max-height: var(--radix-select-content-available-height);
+  overflow: hidden;
+  min-width: var(--radix-select-trigger-width);
+}
+.pond-select [data-radix-select-viewport] {
+  height: auto;
 }
 .pond-select [role="option"] {
-  min-height: 36px;
+  min-height: 38px;
+  padding: 8px 34px 8px 12px;
+  line-height: 20px;
   font-size: 12px;
   border-radius: 6px;
   cursor: pointer;
+}
+.pond-select .cn-select-item-indicator {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+}
+.pond-select .cn-select-item-indicator svg {
+  width: 14px;
+  height: 14px;
+}
+.pond-select [data-slot="select-scroll-up-button"],
+.pond-select [data-slot="select-scroll-down-button"] {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 20px;
+}
+.pond-select [data-slot="select-scroll-up-button"] svg,
+.pond-select [data-slot="select-scroll-down-button"] svg {
+  width: 14px;
+  height: 14px;
 }
 .pond-select [role="option"][data-highlighted] {
   background: #515e47;
@@ -615,6 +650,8 @@ pre:focus-visible {
 }
 .pond-popover .scene-choice {
   position: relative;
+  width: 100%;
+  min-width: 0;
   height: 87px;
   min-height: 87px;
   justify-content: flex-start;
@@ -643,6 +680,7 @@ pre:focus-visible {
   display: grid;
   gap: 5px;
   min-width: 0;
+  padding-right: 12px;
 }
 .scene-copy > span {
   font-size: 12px;
@@ -873,7 +911,7 @@ pre:focus-visible {
   opacity: 1;
   transform: translate(-50%, 0);
 }
-.pond-playground:has(.dock-button[data-state="open"]) .pond-notice {
+.pond-playground[data-panel-open] .pond-notice {
   bottom: auto;
   top: max(16px, env(safe-area-inset-top));
 }
@@ -1280,11 +1318,13 @@ html[data-input="keyboard"] .pond-popover {
 }
 .scene-choice > span:last-child {
   gap: 11px;
+  height: 100%;
 }
 .scene-choice .scene-check {
-  position: static;
-  margin-left: auto;
-  align-self: flex-start;
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 0;
 }
 .scene-choice .scene-copy small {
   color: #edf0e8;
@@ -1323,6 +1363,16 @@ html[data-input="keyboard"] .pond-popover {
 }
 
 @media (max-width: 420px) {
+  .pond-popover .scene-choice {
+    height: 100px;
+    min-height: 100px;
+  }
+  .scene-choice > span:last-child {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 8px;
+  }
   .variety-button > span:last-child {
     flex-direction: column;
     gap: 6px;

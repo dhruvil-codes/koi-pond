@@ -20,12 +20,22 @@ page.on('pageerror', error => errors.push(error.message))
 const results = []
 const check = (condition, message) => { assert(condition, message); results.push(message) }
 const config = () => page.evaluate(() => document.querySelector('#pond').pond.getConfig())
-const select = async (label, option) => { await page.getByRole('combobox', { name: label, exact: true }).click(); await page.getByRole('option', { name: option, exact: true }).click() }
+const select = async (label, option) => {
+  await page.getByRole('combobox', { name: label, exact: true }).click()
+  const alignment = await page.locator('.pond-select [role=option]').evaluateAll(nodes => nodes.map(node => {
+    const row = node.getBoundingClientRect(), text = node.lastElementChild.getBoundingClientRect()
+    return text.left - row.left
+  }))
+  check(Math.max(...alignment) - Math.min(...alignment) < 1, label + ': selected and unselected option labels align')
+  const menu = await page.locator('.pond-select').boundingBox(), dock = await page.locator('.pond-dock').boundingBox()
+  check(menu.y >= 0 && menu.y + menu.height <= dock.y - 4, label + ': dropdown stays above the dock')
+  await page.getByRole('option', { name: option, exact: true }).click()
+}
 const slider = async (label, key, expected, keypress = 'End') => {
   await page.getByRole('slider', { name: label, exact: true }).press(keypress)
   await page.waitForFunction(([key, value]) => document.querySelector('#pond').pond.getConfig()[key] === value, [key, expected])
 }
-const open = async id => { if (await page.locator('#' + id).getAttribute('data-state') !== 'open') await page.locator('#' + id).click(); await page.locator('.pond-popover[data-state=open]').waitFor() }
+const open = async id => { if (await page.locator('#' + id).getAttribute('aria-expanded') !== 'true') await page.locator('#' + id).click(); await page.locator('.pond-popover[data-state=open]').waitFor() }
 const close = async () => { await page.keyboard.press('Escape'); await page.locator('.pond-popover').waitFor({ state: 'detached' }) }
 const lastCopy = () => page.evaluate(() => window.__copies.at(-1))
 const noScroll = async label => {
@@ -40,6 +50,14 @@ const panelFits = async label => {
   check(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= viewport.width + 1 && box.y + box.height <= viewport.height + 1, label + ': panel fits viewport')
   const scroll = await page.locator('.pond-popover[data-state=open]').evaluate(node => ({ client: node.clientHeight, scroll: node.scrollHeight }))
   check(scroll.scroll <= scroll.client + 1, label + ': all controls visible without panel scrolling')
+}
+const sceneButtonsFit = async label => {
+  const boxes = await page.locator('.scene-choice').evaluateAll(nodes => nodes.map(node => {
+    const rect = node.getBoundingClientRect(), copy = node.querySelector('.scene-copy')
+    return { width: rect.width, height: rect.height, textFits: copy.scrollWidth <= copy.clientWidth + 1 }
+  }))
+  check(Math.max(...boxes.map(box => box.width)) - Math.min(...boxes.map(box => box.width)) < 1, label + ': scene buttons fill equal columns')
+  check(boxes.every(box => box.textFits) && Math.max(...boxes.map(box => box.height)) - Math.min(...boxes.map(box => box.height)) < 1, label + ': scene captions fit equal-height buttons ' + JSON.stringify(boxes))
 }
 try {
   await page.goto(pageURL)
@@ -94,7 +112,7 @@ try {
   await close()
   check(await page.locator('#controls').evaluate(node => node === document.activeElement), 'Escape restores focus to dock trigger')
   for (const environment of ['moonlight', 'autumn', 'sakura', 'zen']) {
-    await open('environments'); await page.locator('[data-environment=' + environment + ']').click()
+    await open('environments'); await sceneButtonsFit('Selected ' + environment); await page.locator('[data-environment=' + environment + ']').click()
     const next = await config()
     check(next.environment === environment && ['fishCount', 'speed', 'fishSize', 'behavior', 'varieties'].every(key => JSON.stringify(next[key]) === JSON.stringify(fish[key])), environment + ': environment preserves fish settings')
   }
@@ -127,7 +145,7 @@ try {
   await close()
 
   await open('embed')
-  check((await lastCopy()).includes('#v0.2.0'), 'Dock command action copies the install command directly')
+  check((await lastCopy()).includes('#v0.2.1'), 'Dock command action copies the install command directly')
   for (const target of ['javascript', 'html', 'react', 'next']) {
     await page.locator('[data-target=' + target + ']').click()
     const exact = await page.evaluate(() => {
@@ -138,7 +156,7 @@ try {
     check(exact, target + ': code matches current settings exactly')
   }
   await page.locator('#copy-install').click()
-  check((await lastCopy()).includes('#v0.2.0'), 'Install command copies actual published Git tag')
+  check((await lastCopy()).includes('#v0.2.1'), 'Install command copies actual published Git tag')
   await page.locator('#copy-code').click()
   check((await lastCopy()).includes("'use client'"), 'Copy code uses selected framework')
   await page.locator('[data-target=json]').click(); await page.locator('#copy-json').click()
@@ -181,12 +199,35 @@ try {
   await close()
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => window.__copies.push(text) } }))
 
+  const visibleFood = await page.evaluate(() => {
+    const canvas = document.querySelector('#pond'), pond = canvas.pond
+    pond.setOptions({ fishCount: 1, fishSize: 1, speed: 3, paused: true, environment: 'zen' }); pond.reset()
+    const context = canvas.getContext('2d'), x = Math.floor(canvas.width * .52), y = Math.floor(canvas.height * .24), radius = 24
+    const before = context.getImageData(x - radius, y - radius, radius * 2, radius * 2).data
+    pond.feed(.52, .24)
+    const after = context.getImageData(x - radius, y - radius, radius * 2, radius * 2).data
+    let visiblePixels = 0
+    for (let i = 0; i < after.length; i += 4) if (Math.max(Math.abs(after[i] - before[i]), Math.abs(after[i + 1] - before[i + 1]), Math.abs(after[i + 2] - before[i + 2])) > 70) visiblePixels++
+    return visiblePixels
+  })
+  check(visibleFood > 50, 'Food has a clearly visible footprint on the actual canvas')
+  await page.screenshot({ path: fileURLToPath(new URL('visible-food.png', proof)) })
+  await page.evaluate(() => document.querySelector('#pond').pond.play())
+  await page.waitForFunction(() => document.querySelector('#pond').pond.getState().eaten === 1, null, { timeout: 15000 })
+  check(await page.evaluate(() => document.querySelector('#pond').pond.getState().foodCount === 0), 'Live koi consume the visible pellet and remove it')
+  await page.evaluate(() => document.querySelector('#pond').pond.resetToDefaults())
+
   for (const [label, width, height] of [['Desktop',1440,900], ['Laptop',1280,720], ['Mobile',390,844], ['Small mobile',320,568], ['Landscape',568,320], ['Tablet',768,1024]]) {
     await page.setViewportSize({ width, height })
     await noScroll(label)
-    await open('environments'); await panelFits(label + ' scenes'); await close()
+    await open('environments'); await panelFits(label + ' scenes'); await sceneButtonsFit(label); if (label === 'Desktop') await page.screenshot({ path: fileURLToPath(new URL('scenes.png', proof)) }); await close()
     await open('controls')
     for (const category of ['Koi','Water','Atmosphere']) { await page.getByRole('tab', { name: category, exact: true }).click(); await panelFits(label + ' ' + category) }
+    await select('Time of day', 'Dawn')
+    await page.getByRole('combobox', { name: 'Time of day', exact: true }).click()
+    if (label === 'Desktop') await page.screenshot({ path: fileURLToPath(new URL('dropdown.png', proof)) })
+    await page.keyboard.press('Escape')
+    check(await page.locator('.pond-popover[data-state=open]').count() === 1, label + ': Escape dismisses dropdown while keeping settings open')
     if (label === 'Mobile') await page.screenshot({ path: fileURLToPath(new URL('mobile-controls.png', proof)) })
     await close()
     await open('more'); await panelFits(label + ' actions'); await close()
