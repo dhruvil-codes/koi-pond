@@ -57,7 +57,7 @@ The pond pauses offscreen and while the document is hidden. Reduced-motion prefe
 
 ## Installation status
 
-The npm registry package has not been published. The documented source install is `npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.4.1`; create the `v0.4.1` tag when shipping. The import name after installing the repository package is `@dhruvil-codes/koi-pond`. Do not describe it as a registry-published package.
+The npm registry package has not been published. The documented source install is `npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.4.2`; create the `v0.4.2` tag when shipping. The import name after installing the repository package is `@dhruvil-codes/koi-pond`. Do not describe it as a registry-published package.
 
 ## Release checks
 

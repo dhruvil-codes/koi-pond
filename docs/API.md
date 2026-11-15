@@ -1,6 +1,6 @@
 # API
 
-Koi Pond can run as a custom element or as a controller on a canvas. The library and generated browser builds have no runtime dependencies. The package name is `@dhruvil-codes/koi-pond`; the npm registry package is not published. See [installation](../README.md#install-from-github) for the GitHub source command.
+Koi Pond can run as a custom element or as a controller on a canvas. The library and generated browser builds have no runtime dependencies. The package name is `@dhruvil-codes/koi-pond`; the npm registry package is not published. See [installation](../README.md#install-from-github-for-javascript-apps) for the GitHub source command.
 
 ## Custom element
 

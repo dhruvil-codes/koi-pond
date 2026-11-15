@@ -29,9 +29,9 @@ Importing the ESM package does not access browser globals immediately, so server
 
 `examples/ReactPond.jsx` mounts the canvas controller in one effect and updates settings through another. Its cleanup destroys the controller. This also handles React Strict Mode's development setup/cleanup cycle without keeping an old instance. The effect pattern follows React's [`useEffect` reference](https://react.dev/reference/react/useEffect).
 
-For a Next.js App Router project, the example file is a client component and starts with `'use client'`. That directive establishes the browser component boundary required for effects and browser interaction. See the [Next.js `use client` reference](https://nextjs.org/docs/app/api-reference/directives/use-client). The example passed an optimized production build and static prerender in a minimal Next.js 16.4.6 / React 19.3.1 app. Canvas interactions are additionally exercised by the standalone browser fixture; this does not substitute for testing your app's full layout and routing.
+For a Next.js App Router project, the example file is a client component and starts with `'use client'`. That directive establishes the browser component boundary required for effects and browser interaction. See the [Next.js `use client` reference](https://nextjs.org/docs/app/api-reference/directives/use-client). `npm run check:consumer` verifies the actual packaged example with Next.js 16.4.6 and React 19.3.1, including a production static export, browser hydration and prop updates. This does not substitute for testing your app's full layout and routing.
 
-The package import assumes the GitHub source install described in the [README](../README.md#install-from-github); it does not imply that the package is published to the npm registry.
+The package import assumes the GitHub source install described in the [README](../README.md#install-from-github-for-javascript-apps); it does not imply that the package is published to the npm registry.
 
 ## Decorative portfolio background
 

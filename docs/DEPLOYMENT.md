@@ -10,7 +10,7 @@ The playground is a static website. `vercel.json` builds it and publishes only t
    | Setting | Value |
    | --- | --- |
    | Install command | `npm ci` |
-   | Build command | `npm run build && node scripts/prepare-site.mjs` |
+   | Build command | `npm run build:all && node scripts/prepare-site.mjs` |
    | Output directory | `.local/site` |
 
 3. Deploy and check the generated `vercel.app` URL before moving the custom domain.
@@ -36,7 +36,7 @@ Official references: [Vercel project configuration](https://vercel.com/docs/proj
 
 ```sh
 npm ci
-npm run build
+npm run build:all
 node scripts/prepare-site.mjs
 ```
 

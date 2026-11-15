@@ -1,4 +1,4 @@
-/*! Koi Pond v0.4.1 | Copyright 2026 Dhruvil | MIT License */
+/*! Koi Pond v0.4.2 | Copyright 2026 Dhruvil | MIT License */
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n))
 const wrap = a => Math.atan2(Math.sin(a), Math.cos(a))
 const hash = (x, y) => ((Math.imul(x + 31, 374761393) ^ Math.imul(y + 19, 668265263)) >>> 0) / 4294967296
@@ -976,7 +976,7 @@ function createKoiPond(canvas, options = {}) {
   const media = win.matchMedia('(prefers-reduced-motion: reduce)')
   const listeners = new win.AbortController()
   let pond = createPond(120, 44, 1.6, { ...settings, paused: settings.paused || media.matches })
-  let destroyed = false, raf = 0, previous = 0, inView = true, width = 0, height = 0, cellX = 3, cellY = 4.8
+  let destroyed = false, raf = 0, sizeRaf = 0, previous = 0, inView = true, width = 0, height = 0, cellX = 3, cellY = 4.8
   let down, keyboardCursor, lastPoint, lastStir = -Infinity, palette, fromPalette, paletteTime = 0
   let paintedFrame, paintedCursor = false, frameBudget = 1000 / 60, slowFrames = 0
   let columnEdges, rowEdges, pixelRatio = 1, rasterBackground, rasterPalette
@@ -1085,15 +1085,15 @@ function createKoiPond(canvas, options = {}) {
   }
   const resume = () => { stop(); if (canRun()) raf = win.requestAnimationFrame(tick) }
   const size = () => {
-    if (destroyed) return
+    if (destroyed) return false
     const rect = canvas.getBoundingClientRect(), dpr = Math.min(win.devicePixelRatio || 1, 2)
-    width = rect.width; height = rect.height
-    pixelRatio = dpr
-    if (!width || !height) { stop(); return }
+    if (!rect.width || !rect.height) { width = rect.width; height = rect.height; stop(); return false }
     const fine = pond.options.detail === 'fine'
     const workload = Math.max(1, pond.options.fishCount / 14) * Math.max(1, pond.options.fishSize) ** 2
     const maximum = Math.max(fine ? 180 : 140, Math.floor((fine ? 480 : 300) / Math.sqrt(workload)))
-    cellX = Math.max(fine ? 2.5 : 4, Math.min(fine ? 3 : 6, width / (fine ? 360 : 180)), width / maximum)
+    const nextCell = Math.max(fine ? 2.5 : 4, Math.min(fine ? 3 : 6, rect.width / (fine ? 360 : 180)), rect.width / maximum)
+    if (width === rect.width && height === rect.height && pixelRatio === dpr && cellX === nextCell && canvas.width === Math.round(width * dpr) && canvas.height === Math.round(height * dpr)) return false
+    width = rect.width; height = rect.height; pixelRatio = dpr; cellX = nextCell
     cellY = cellX * 1.6
     canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr)
     paintedFrame = undefined; rasterBackground = undefined; frameBudget = 1000 / 60; slowFrames = 0
@@ -1105,6 +1105,12 @@ function createKoiPond(canvas, options = {}) {
     columnEdges = Float64Array.from({ length: pond.columns + 1 }, (_, x) => Math.round(x * cellX * dpr) / dpr)
     rowEdges = Float64Array.from({ length: pond.rows + 1 }, (_, y) => Math.round(y * cellY * dpr) / dpr)
     paint(); resume()
+    return true
+  }
+  const queueSize = () => {
+    if (destroyed || sizeRaf) return
+    // Canvas writes during observer delivery can feed back into layout in WebKit.
+    sizeRaf = win.requestAnimationFrame(() => { sizeRaf = 0; size() })
   }
   const coordinates = (x, y) => {
     if (!Number.isFinite(x) || !Number.isFinite(y)) throw new TypeError('Pond coordinates must be finite numbers from 0 to 1')
@@ -1172,10 +1178,10 @@ function createKoiPond(canvas, options = {}) {
     }
   })
   on(doc, 'visibilitychange', resume)
-  on(win, 'resize', size)
+  on(win, 'resize', queueSize)
   const reducedMotion = () => { if (media.matches) controller.pause() }
   media.addEventListener('change', reducedMotion)
-  const resize = new win.ResizeObserver(size)
+  const resize = new win.ResizeObserver(queueSize)
   resize.observe(canvas)
   const intersection = win.IntersectionObserver ? new win.IntersectionObserver(entries => { inView = entries.some(entry => entry.isIntersecting); resume() }) : null
   intersection?.observe(canvas)
@@ -1193,12 +1199,9 @@ function createKoiPond(canvas, options = {}) {
       if (environmentChanged) { fromPalette = palette?.slice(); paletteTime = win.performance.now() }
       configurePond(pond, partial)
       down = undefined
-      if (detailChanged) size()
-      else {
-        paint()
-        if (pond.paused) stop()
-        else if (!raf && canRun()) resume()
-      }
+      if (!detailChanged || !size()) paint()
+      if (pond.paused) stop()
+      else if (!raf && canRun()) resume()
       announce()
       return state()
     },
@@ -1219,6 +1222,8 @@ function createKoiPond(canvas, options = {}) {
       if (down && canvas.hasPointerCapture?.(down.id)) canvas.releasePointerCapture(down.id)
       down = undefined
       stop(); destroyed = true; listeners.abort(); resize.disconnect(); intersection?.disconnect()
+      if (sizeRaf) win.cancelAnimationFrame(sizeRaf)
+      sizeRaf = 0
       media.removeEventListener('change', reducedMotion)
       for (const [key, value] of Object.entries(saved)) { if (value === null) canvas.removeAttribute(key); else canvas.setAttribute(key, value) }
       canvas.style.touchAction = originalTouchAction

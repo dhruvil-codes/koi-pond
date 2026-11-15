@@ -1,12 +1,17 @@
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { chromium } from 'playwright'
+import { parseArgs } from 'node:util'
+import { chromium, firefox, webkit } from 'playwright'
 
+const { values } = parseArgs({ options: { browser: { type: 'string', default: process.env.PLAYWRIGHT_BROWSER || 'chromium' } } })
+const engines = { chromium, firefox, webkit }, browserName = values.browser
+if (!Object.hasOwn(engines, browserName)) throw new Error('Choose --browser=chromium, --browser=firefox, or --browser=webkit')
+if (process.env.PLAYWRIGHT_CHANNEL && browserName !== 'chromium') throw new Error('PLAYWRIGHT_CHANNEL is only supported with Chromium')
 const pageURL = new URL('../index.html', import.meta.url).href
-const proof = new URL('../.local/ui-check/', import.meta.url)
+const proof = new URL(`../.local/ui-check/${browserName}/`, import.meta.url)
 await mkdir(proof, { recursive: true })
-const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}) })
+const browser = await engines[browserName].launch({ headless: true, ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}) })
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'no-preference' })
 await context.setOffline(true)
 await context.addInitScript(() => {
@@ -14,14 +19,20 @@ await context.addInitScript(() => {
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => window.__copies.push(text) } })
 })
 const page = await context.newPage()
-page.setDefaultTimeout(8000)
+page.setDefaultTimeout(15000)
 const errors = []
-page.on('pageerror', error => errors.push(error.message))
+const watchErrors = (target, label) => target.on('pageerror', error => {
+  errors.push(`${label}: ${error.message}`)
+})
+watchErrors(page, 'main')
+context.on('page', child => watchErrors(child, 'shared'))
 const results = []
 const check = (condition, message) => { assert(condition, message); results.push(message) }
 const config = () => page.evaluate(() => document.querySelector('#pond').pond.getConfig())
 const select = async (label, option) => {
+  const animation = label === 'Movement' ? await page.locator('.pond-popover').evaluate(node => getComputedStyle(node).animationName) : null
   await page.getByRole('combobox', { name: label, exact: true }).click()
+  if (animation !== null) check(await page.locator('.pond-popover').evaluate(node => getComputedStyle(node).animationName) === animation, 'Switching keyboard to pointer does not restart the panel entrance animation')
   const alignment = await page.locator('.pond-select [role=option]').evaluateAll(nodes => nodes.map(node => {
     const row = node.getBoundingClientRect(), text = node.lastElementChild.getBoundingClientRect()
     return text.left - row.left
@@ -161,7 +172,7 @@ try {
 
   console.log('Checking exact embeds, share links and imports...')
   await open('embed')
-  check((await lastCopy()).includes('#v0.4.1'), 'Dock command action copies the install command directly')
+  check((await lastCopy()).includes('#v0.4.2'), 'Dock command action copies the install command directly')
   for (const target of ['javascript', 'html', 'react', 'next']) {
     await page.locator('[data-target=' + target + ']').click()
     const exact = await page.evaluate(() => {
@@ -172,7 +183,7 @@ try {
     check(exact, target + ': code matches current settings exactly')
   }
   await page.locator('#copy-install').click()
-  check((await lastCopy()).includes('#v0.4.1'), 'Install command copies actual published Git tag')
+  check((await lastCopy()).includes('#v0.4.2'), 'Install command copies actual published Git tag')
   await page.locator('#copy-code').click()
   check((await lastCopy()).includes("'use client'"), 'Copy code uses selected framework')
   await page.locator('[data-target=json]').click(); await page.locator('#copy-json').click()
@@ -280,15 +291,32 @@ try {
   const reduced = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
   await reduced.setOffline(true)
   const reducedPage = await reduced.newPage()
+  watchErrors(reducedPage, 'reduced-motion')
   await reducedPage.goto(pageURL)
   await reducedPage.waitForFunction(() => document.querySelector('#pond')?.pond)
   check(await reducedPage.evaluate(() => document.querySelector('#pond').pond.getConfig().paused), 'Reduced motion starts pond paused')
   await reducedPage.close(); await reduced.close()
+  const touch = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion: 'reduce' })
+  await touch.setOffline(true)
+  try {
+    const touchPage = await touch.newPage()
+    watchErrors(touchPage, 'touch')
+    await touchPage.goto(pageURL)
+    await touchPage.waitForFunction(() => document.querySelector('#pond')?.pond)
+    await touchPage.touchscreen.tap(190, 260)
+    check(await touchPage.evaluate(() => document.querySelector('#pond').pond.getState().foodCount === 1), 'Emulated touch tap drops food on the canvas')
+    await touchPage.locator('#environments').tap()
+    await touchPage.locator('[data-environment=daylight]').tap()
+    check(await touchPage.evaluate(() => document.querySelector('#pond').pond.getConfig().environment === 'daylight'), 'Scene selection works with touch input')
+    check(await touchPage.evaluate(() => document.querySelector('#pond').pond.getState().foodCount === 1), 'Touching dock controls never feeds the underlying pond')
+    check(await touchPage.evaluate(() => document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth), 'Touch viewport stays free of page scrolling')
+  } finally { await touch.close() }
   check(errors.length === 0, 'No browser runtime errors: ' + errors.join('; '))
-  await writeFile(new URL('results.json', proof), JSON.stringify({ checks: results.length, results, errors }, null, 2))
-  console.log(`Passed ${results.length} browser checks: Kumo actions, ReUI controls, exact copy/share/import, offline embedding, keyboard, reduced motion and six viewport layouts.`)
-  console.log('Visual checks saved in .local/ui-check/')
+  await writeFile(new URL('results.json', proof), JSON.stringify({ browser: browserName, version: browser.version(), passed: true, checks: results.length, results, errors }, null, 2))
+  console.log(`Passed ${results.length} ${browserName} checks: Kumo actions, ReUI controls, exact copy/share/import, offline embedding, keyboard, reduced motion and six viewport layouts.`)
+  console.log(`Visual checks saved in .local/ui-check/${browserName}/`)
 } catch (error) {
-  await page.screenshot({ path: fileURLToPath(new URL('failure.png', proof)) }).catch(() => {})
+  await writeFile(new URL('results.json', proof), JSON.stringify({ browser: browserName, version: browser.version(), passed: false, checks: results.length, results, errors, failure: String(error) }, null, 2))
+  await page.screenshot({ path: fileURLToPath(new URL('failure.png', proof)), timeout: 5000 }).catch(() => {})
   throw error
 } finally { await context.close(); await browser.close() }

@@ -1,4 +1,4 @@
-export const INSTALL_COMMAND = 'npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.4.1'
+export const INSTALL_COMMAND = 'npm install git+https://github.com/dhruvil-codes/koi-pond.git#v0.4.2'
 
 export function generateSnippet(config, target = 'javascript') {
   const json = JSON.stringify(config, null, 2)

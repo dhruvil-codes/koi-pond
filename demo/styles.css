@@ -993,7 +993,7 @@ noscript {
     transform: translateY(0) scale(1);
   }
 }
-html[data-input="keyboard"] .pond-popover {
+.pond-popover[data-open-input="keyboard"] {
   animation: none;
 }
 

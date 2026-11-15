@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: 24
       - run: npm ci
-      - run: npm run build
+      - run: npm run build:all
       - run: npm test
       - run: node scripts/prepare-site.mjs
       - uses: actions/configure-pages@v5

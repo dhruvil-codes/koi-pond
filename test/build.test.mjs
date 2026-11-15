@@ -33,6 +33,10 @@ test('standalone and browser distributions reproduce with no runtime dependencie
   assert(scripts.every(script => !/^<script[^>]*\bsrc=/i.test(script)), 'The standalone demo must have no external scripts')
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url)))
   assert.equal(Object.keys(pkg.dependencies || {}).length, 0)
+  for (const hook of ['build', 'prepare', 'prepack', 'preinstall', 'install', 'postinstall']) {
+    assert(!pkg.scripts?.[hook], `${hook} would make Git consumers prepare the package instead of using committed bundles`)
+  }
+  assert(!pkg.workspaces, 'Git consumers must not install a development workspace')
   assert(pkg.devDependencies.react && pkg.devDependencies['react-dom'] && pkg.devDependencies.esbuild)
   assert(pkg.devDependencies['@cloudflare/kumo'] && pkg.devDependencies.playwright)
   assert.deepEqual(pkg.files, ['dist/', 'types/', 'index.html', 'examples/', 'docs/', 'LICENSE', 'README.md'])

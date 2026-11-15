@@ -11,6 +11,14 @@ The current release includes environment separation, a configurable playground a
 
 The 0.4.1 visual refinement smooths the water field, limits caustics to irregular patches, softens plant/bank shadows and replaces scattered glare with connected reflection bands. A cached background raster provides correct translucent compositing and restoration during movement.
 
+## v0.4.2: installation and compatibility
+
+- Git installs consume the committed library builds without installing playground development dependencies.
+- Resize notifications share one deferred update; unchanged dimensions retain the cached canvas.
+- Switching between keyboard and pointer input no longer replays an open panel's entrance animation or disrupts dropdown positioning in WebKit.
+- CI checks Chromium, Firefox and WebKit, plus installed HTML, React Strict Mode and Next.js static-export consumers.
+- README, contributor instructions and testing notes document the installation path, cleanup, reproducibility and coverage limits.
+
 ## v0.2 — implementation scope
 
 - Five procedural environments: Zen Garden, Moonlight, Autumn, Sakura Spring and sunny Daylight.
@@ -21,7 +29,7 @@ The 0.4.1 visual refinement smooths the water field, limits caustics to irregula
 - Plain HTML, React/Next.js lifecycle and decorative portfolio background examples.
 - Classic and ESM distribution paths with no runtime dependencies; standalone HTML remains usable offline.
 
-The npm registry package is not published. Install the versioned GitHub source from the `v0.4.1` tag. The public playground is hosted at https://koi-pond.bydhruvil.in/.
+The npm registry package is not published. Install the versioned GitHub source from the `v0.4.2` tag. The public playground is hosted at https://koi-pond.bydhruvil.in/.
 
 ## Future work
 

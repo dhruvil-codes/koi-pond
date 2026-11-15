@@ -158,8 +158,28 @@ test('translucent effects restore the cached pond and geometry/palette changes r
   assert(background.ctx.rectCount > recolored, 'New vegetation invalidates cached submerged shadows')
   canvas.bounds.width = 500
   b.observers[0].fn()
+  b.step()
   assert.equal(background.width, canvas.width)
   assert.equal(background.height, canvas.height)
   pond.destroy()
   assert.equal(background.width + background.height, 0, 'Destroy releases the backing raster')
+})
+
+test('resize notifications coalesce and unchanged dimensions do not reset the backing canvas', () => {
+  const b = browser(), canvas = b.canvas(), pond = createKoiPond(canvas, { paused: true })
+  const background = b.backgrounds[0], initial = background.ctx.rectCount, images = canvas.ctx.imageCount
+  b.observers[0].fn(); b.observers[0].fn(); b.win.dispatchEvent(new Event('resize'))
+  assert.equal(b.frames.size, 1, 'Repeated layout notifications share one deferred resize')
+  assert.equal(background.ctx.rectCount, initial, 'Observer delivery performs no synchronous canvas writes')
+  b.step()
+  assert.equal(canvas.ctx.imageCount, images, 'Unchanged dimensions need no repaint')
+  assert.equal(background.ctx.rectCount, initial, 'Unchanged dimensions retain their cached background')
+  pond.setOptions({ fishCount: 11 })
+  assert(canvas.ctx.imageCount > images, 'Population changes still paint when the grid dimensions stay the same')
+  canvas.bounds.width = 400
+  b.observers[0].fn(); b.step()
+  assert.equal(canvas.width, 800, 'Deferred resizing applies the latest CSS size and capped DPR')
+  b.observers[0].fn()
+  pond.destroy()
+  assert.equal(b.frames.size, 0, 'Destroy cancels a queued resize as well as motion')
 })

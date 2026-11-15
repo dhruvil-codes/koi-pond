@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -286,6 +287,10 @@ function DockPanel({
   children: ReactNode;
   className?: string;
 }) {
+  const setPanelNode = useCallback((node: HTMLDivElement | null) => {
+    // Keep the opening modality fixed so changing input never replays the animation.
+    if (node) node.dataset.openInput = document.documentElement.dataset.input || "pointer";
+  }, []);
   return (
     <Popover
       open={open === id}
@@ -295,6 +300,7 @@ function DockPanel({
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       </Hint>
       <PopoverContent
+        ref={setPanelNode}
         side="top"
         align="center"
         sideOffset={16}
