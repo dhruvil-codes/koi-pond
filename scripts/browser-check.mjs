@@ -44,6 +44,12 @@ const panelFits = async label => {
 try {
   await page.goto(pageURL)
   await page.waitForFunction(() => document.querySelector('#pond')?.pond)
+  await page.evaluate(() => document.fonts.ready)
+  check(await page.evaluate(() => document.fonts.check('500 13px Inter') && [...document.fonts].some(font => font.family === 'Inter' && font.status === 'loaded')), 'Inter font loads offline from the standalone page')
+  check(await page.locator('.pond-dock button').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).fontFamily.startsWith('Inter'))), 'Every dock button uses Inter')
+  check(await page.locator('.pond-dock [data-kumo-component=Button]').evaluateAll(nodes => nodes.every(node => getComputedStyle(node.firstElementChild).backgroundImage.includes('linear-gradient'))), 'Every dock action uses the Kumo primary gradient')
+  check(await page.locator('.pond-dock [data-kumo-component=Button]').evaluateAll(nodes => new Set(nodes.map(node => getComputedStyle(node).getPropertyValue('--color-kumo-brand').trim())).size === nodes.length), 'Each dock action has a distinct primary colour')
+  check(await page.locator('#embed').getAttribute('aria-label') === 'Copy the command', 'Command button uses the requested label')
   check(await page.locator('.topbar,.scene-name,.scene-seed,.developer,.inspector').count() === 0, 'Old headings and dashboard chrome removed')
   const canvasSize = await page.locator('#pond').boundingBox()
   check(canvasSize.width === 1440 && canvasSize.height === 900, 'Pond fills viewport')
@@ -121,6 +127,7 @@ try {
   await close()
 
   await open('embed')
+  check((await lastCopy()).includes('#v0.2.0'), 'Dock command action copies the install command directly')
   for (const target of ['javascript', 'html', 'react', 'next']) {
     await page.locator('[data-target=' + target + ']').click()
     const exact = await page.evaluate(() => {
@@ -172,6 +179,7 @@ try {
   await page.locator('#copy-code').click()
   check(await page.locator('#copy-fallback').evaluate(node => node === document.activeElement && node.selectionEnd === node.value.length), 'Clipboard denial offers selected manual copy')
   await close()
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => window.__copies.push(text) } }))
 
   for (const [label, width, height] of [['Desktop',1440,900], ['Laptop',1280,720], ['Mobile',390,844], ['Small mobile',320,568], ['Landscape',568,320], ['Tablet',768,1024]]) {
     await page.setViewportSize({ width, height })
@@ -183,6 +191,11 @@ try {
     await close()
     await open('more'); await panelFits(label + ' actions'); await close()
     await open('embed'); await page.locator('[data-target=javascript]').click(); await panelFits(label + ' embed'); await close()
+    if (label === 'Landscape' || label === 'Small mobile') {
+      await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Denied') } } }))
+      await open('embed'); await page.locator('#copy-fallback').waitFor(); await panelFits(label + ' manual copy'); await close()
+      await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => window.__copies.push(text) } }))
+    }
     if (label === 'Mobile') await page.screenshot({ path: fileURLToPath(new URL('mobile.png', proof)) })
   }
   const reduced = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })

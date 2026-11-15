@@ -3,6 +3,14 @@
 @source './**/*.{ts,tsx}';
 @custom-variant dark (&:where(.dark, .dark *));
 
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("__INTER_FONT__") format("woff2");
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -23,11 +31,9 @@
 
 :root {
   color-scheme: dark;
-  font-family:
-    "Segoe UI",
-    -apple-system,
-    BlinkMacSystemFont,
-    sans-serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "Inter", sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
   --background: #252925;
   --foreground: #f3f2ee;
@@ -164,8 +170,8 @@ pre:focus-visible {
   transform: scale(0.97);
 }
 .dock-button[data-state="open"] {
-  background: #4a5343;
-  box-shadow: inset 0 1px #ffffff12;
+  outline: 1px solid #ffffff8a;
+  outline-offset: 3px;
 }
 .scene-trigger {
   min-width: 155px;
@@ -449,13 +455,11 @@ pre:focus-visible {
   font-weight: 400;
 }
 .variety-button[aria-pressed="true"] {
-  border-color: #9baa8659;
-  background: #46503e;
-  color: #f6f5ed;
+  outline: 1px solid #d8e3cc9c;
+  outline-offset: 2px;
 }
 .variety-button[aria-pressed="false"] {
-  background: #30372c;
-  color: #c0c8b8;
+  opacity: 0.6;
 }
 .variety-button:disabled {
   opacity: 1;
@@ -619,13 +623,10 @@ pre:focus-visible {
   text-align: left;
   white-space: normal;
   border-radius: 12px;
-  background: #343c2e;
-  border: 1px solid #ffffff17;
-  box-shadow: inset 0 1px #ffffff06;
 }
 .scene-choice.is-selected {
-  background: #424d38;
-  border-color: #bccfab80;
+  outline: 1px solid #e4eddb;
+  outline-offset: 2px;
 }
 .scene-symbol {
   width: 30px;
@@ -675,10 +676,7 @@ pre:focus-visible {
 }
 .install-row code {
   min-width: 0;
-  font:
-    11px/1.55 ui-monospace,
-    Consolas,
-    monospace;
+  font: 11px/1.55 var(--font-sans);
   overflow-wrap: anywhere;
   color: #dbe5d2;
 }
@@ -716,10 +714,7 @@ pre:focus-visible {
   border-radius: 10px;
   background: #121b12;
   color: #d7e1cf;
-  font:
-    11px/1.7 ui-monospace,
-    Consolas,
-    monospace;
+  font: 11px/1.7 var(--font-sans);
   tab-size: 2;
   scrollbar-width: thin;
   scrollbar-color: #5a6850 transparent;
@@ -760,10 +755,7 @@ pre:focus-visible {
   padding: 12px;
   background: #121b12;
   color: #e2e8da;
-  font:
-    11px/1.6 ui-monospace,
-    Consolas,
-    monospace;
+  font: 11px/1.6 var(--font-sans);
 }
 .import-body textarea::placeholder {
   color: #9eac95;
@@ -818,9 +810,7 @@ pre:focus-visible {
   color: #e1e8d9;
 }
 .interaction-help kbd {
-  font:
-    10px "Segoe UI",
-    sans-serif;
+  font: 10px var(--font-sans);
   border: 1px solid #ffffff24;
   padding: 1px 5px;
   border-radius: 4px;
@@ -917,7 +907,7 @@ html[data-input="keyboard"] .pond-popover {
   animation: none;
 }
 
-@media (max-width: 650px) {
+@media (max-width: 760px) {
   :root {
     --dock-bottom: max(14px, env(safe-area-inset-bottom));
   }
@@ -1207,6 +1197,13 @@ html[data-input="keyboard"] .pond-popover {
     height: 80px;
     min-height: 54px;
   }
+  .clipboard-fallback {
+    gap: 6px;
+    padding-top: 8px;
+  }
+  .clipboard-fallback textarea {
+    height: 64px;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -1215,5 +1212,119 @@ html[data-input="keyboard"] .pond-popover {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Keep Kumo's primary gradient, inset highlight and ring; vary its brand token. */
+.pond-dock .icon-button,
+.pond-popover .close-button,
+.install-row .copy-button,
+.seed-row .seed-button {
+  justify-content: center;
+}
+@media (max-width: 760px) {
+  .pond-dock .settings-trigger,
+  .pond-dock .embed-trigger {
+    justify-content: center;
+  }
+}
+[data-kumo-component="Button"] {
+  --color-kumo-brand: #485867;
+}
+.scene-trigger,
+.scene-choice[data-environment="zen"] {
+  --color-kumo-brand: #255b4b;
+}
+.settings-trigger,
+.action-button {
+  --color-kumo-brand: #5c477a;
+}
+#pause,
+#snapshot,
+.copy-button {
+  --color-kumo-brand: #315d82;
+}
+#randomize,
+.seed-button,
+#reset {
+  --color-kumo-brand: #835d28;
+}
+.embed-trigger,
+#copy-code,
+#copy-json {
+  --color-kumo-brand: #176396;
+}
+.more-trigger,
+.close-button,
+.small-button {
+  --color-kumo-brand: #485460;
+}
+.scene-choice[data-environment="moonlight"] {
+  --color-kumo-brand: #315d82;
+}
+.scene-choice[data-environment="autumn"] {
+  --color-kumo-brand: #835d28;
+}
+.scene-choice[data-environment="sakura"] {
+  --color-kumo-brand: #854961;
+}
+.variety-button {
+  --color-kumo-brand: #39604e;
+}
+.menu-button {
+  --color-kumo-brand: #39604e;
+}
+.scene-trigger > span:last-child,
+.scene-choice > span:last-child {
+  width: 100%;
+}
+.scene-choice > span:last-child {
+  gap: 11px;
+}
+.scene-choice .scene-check {
+  position: static;
+  margin-left: auto;
+  align-self: flex-start;
+}
+.scene-choice .scene-copy small {
+  color: #edf0e8;
+}
+.scene-trigger .scene-dot {
+  color: inherit !important;
+}
+.variety-button > span:last-child {
+  width: 100%;
+}
+
+.panel-tabs [role="tab"],
+.control-select {
+  --control-color: #3c504b;
+  color: #fff;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklch, var(--control-color), white 15%),
+    var(--control-color)
+  );
+  box-shadow:
+    inset 0 1px color-mix(in oklch, var(--control-color), white 30%),
+    0 0 0 1px color-mix(in oklch, var(--control-color), black 10%);
+}
+.panel-tabs [role="tab"][data-state="active"] {
+  --control-color: #5c477a;
+  color: #fff;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklch, var(--control-color), white 15%),
+    var(--control-color)
+  );
+  box-shadow:
+    inset 0 1px color-mix(in oklch, var(--control-color), white 30%),
+    0 0 0 1px #e7dcff8c;
+}
+
+@media (max-width: 420px) {
+  .variety-button > span:last-child {
+    flex-direction: column;
+    gap: 6px;
   }
 }

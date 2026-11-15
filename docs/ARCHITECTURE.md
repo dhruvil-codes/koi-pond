@@ -39,7 +39,7 @@ flowchart LR
 | `test/` | Simulation, environment, artwork, configuration, lifecycle and build checks. |
 | `integrations/t3/` | Isolated experimental Windows adapter and its version guards. |
 
-The library outputs contain only the pond engine and browser controller. Playground-only React and component packages are development dependencies; their minified code and styles are inlined into `index.html`. The page has no external scripts, styles, fonts or images and can be opened offline. Each settings panel uses the same controller; opening controls or changing the environment does not recreate the pond. The browser check opens this file directly, without a server.
+The library outputs contain only the pond engine and browser controller. Playground-only React and component packages are development dependencies; their minified code and styles are inlined into `index.html`. Inter's Latin variable font is stored with its license in `demo/assets/` and embedded as a WOFF2 data URL. The page has no external scripts, styles, fonts or images and can be opened offline. Each settings panel uses the same controller; opening controls or changing the environment does not recreate the pond. The browser check opens this file directly, without a server.
 
 ## State and interaction
 

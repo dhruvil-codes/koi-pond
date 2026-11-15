@@ -58,7 +58,8 @@ async function playgroundAssets() {
       maxBuffer: 20 * 1024 * 1024
     })
     if (cssBuild.status !== 0) throw new Error(`Tailwind CSS build failed:\n${cssBuild.stderr || cssBuild.stdout}`)
-    const css = await readFile(cssOutputPath, 'utf8')
+    const font = await readFile(new URL('demo/assets/inter-latin-variable.woff2', root))
+    const css = (await readFile(cssOutputPath, 'utf8')).replaceAll('__INTER_FONT__', `data:font/woff2;base64,${font.toString('base64')}`)
     return { css, js: jsBuild.outputFiles[0].text }
   } finally {
     assertScratchIsLocal()
@@ -92,7 +93,7 @@ export async function build() {
   let html = template
   for (const [marker, content] of replacements) {
     if (!html.includes(marker)) throw new Error(`demo/template.html is missing required build marker: ${marker}`)
-    html = html.replace(marker, content)
+    html = html.replace(marker, () => content)
   }
   await writeFile(new URL('index.html', root), html.replace(/\r\n/g, '\n').replace(/[ \t]+$/gm, ''))
   console.log(`Built ESM, classic browser script and standalone index.html (${Math.round(classic.length / 1024)} KB library, inline React UI and CSS).`)
