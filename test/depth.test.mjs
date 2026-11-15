@@ -54,7 +54,7 @@ function paintAt(depth, clarity) {
   fishPaint(pond, frame, (x, y, glyph, color, coverage) => {
     assert(x >= 0 && x < frame.columns && y >= 0 && y < frame.rows, 'Paint stays inside the grid')
     assert(coverage >= 0 && coverage <= 255)
-    if (color >= 91 && color <= 98) shadow.push([x, y, 98 - color])
+    if (color === 0 && glyph === ' ') shadow.push([x, y, coverage])
     if (color >= 15 && color <= 44 || color >= 83 && color <= 90) body.push(color)
   })
   assert.deepEqual(pond.fish, before, 'Fish painting does not alter fish state')

@@ -11,13 +11,15 @@ export function createKoiPond(canvas, options = {}) {
   const ctx = canvas.getContext('2d', { alpha: false })
   if (!ctx) throw new Error('A 2D canvas context is required')
   const win = canvas.ownerDocument.defaultView, doc = canvas.ownerDocument
+  const backgroundCanvas = doc.createElement('canvas'), backgroundContext = backgroundCanvas.getContext('2d', { alpha: false })
+  if (!backgroundContext) throw new Error('A 2D canvas context is required for the pond background')
   const media = win.matchMedia('(prefers-reduced-motion: reduce)')
   const listeners = new win.AbortController()
   let pond = createPond(120, 44, 1.6, { ...settings, paused: settings.paused || media.matches })
   let destroyed = false, raf = 0, previous = 0, inView = true, width = 0, height = 0, cellX = 3, cellY = 4.8
   let down, keyboardCursor, lastPoint, lastStir = -Infinity, palette, fromPalette, paletteTime = 0
-  let paintedFrame, paintedPalette, paintedCursor = false, frameBudget = 1000 / 60, slowFrames = 0
-  let columnEdges, rowEdges
+  let paintedFrame, paintedCursor = false, frameBudget = 1000 / 60, slowFrames = 0
+  let columnEdges, rowEdges, pixelRatio = 1, rasterBackground, rasterPalette
   const saved = Object.fromEntries(['tabindex', 'role', 'aria-label'].map(key => [key, canvas.getAttribute(key)]))
   const originalTouchAction = canvas.style.touchAction
   const originalCursor = canvas.style.cursor
@@ -42,33 +44,60 @@ export function createKoiPond(canvas, options = {}) {
       return '#' + [1, 3, 5].map(c => Math.round(parseInt(old.slice(c, c + 2), 16) * (1 - ease) + parseInt(color.slice(c, c + 2), 16) * ease).toString(16).padStart(2, '0')).join('')
     })
   }
+  const paintCell = (context, frame, i, x, y) => {
+    if (frame.chars[i] === 32 && !frame.coverage[i]) return
+    const left = columnEdges[x], top = rowEdges[y], cellWidth = columnEdges[x + 1] - left, cellHeight = rowEdges[y + 1] - top
+    const water = frame.colors[i] >= 91 && frame.colors[i] <= 106
+    context.fillStyle = palette[frame.colors[i]]
+    if (frame.coverage[i]) {
+      context.globalAlpha = frame.coverage[i] / 255
+      const inset = water ? 0 : .1
+      context.fillRect(left + inset, top + inset, cellWidth - inset * 2, cellHeight - inset * 2)
+      context.globalAlpha = 1
+    }
+    if (frame.coverage[i] > 128) context.fillStyle = frame.colors[i] >= 91 ? 'rgba(0,0,0,.16)' : frame.colors[i] >= 83 ? 'rgba(12,35,44,.3)' : frame.colors[i] >= 59 ? 'rgba(74,27,48,.3)' : frame.colors[i] >= 45 ? 'rgba(5,22,12,.4)' : 'rgba(55,47,35,.28)'
+    if (frame.chars[i] !== 32) {
+      context.globalAlpha = frame.coverage[i] <= 128 ? frame.coverage[i] / 128 : 1
+      context.fillText(String.fromCharCode(frame.chars[i]), (x + .5) * cellX, (y + .5) * cellY)
+      context.globalAlpha = 1
+    }
+  }
   const paint = (now = win.performance.now()) => {
     if (destroyed || !width || !height) return
-    const frame = renderPond(pond)
+    const frame = renderPond(pond), background = frame.background
     palette = mixPalette(frame.palette, now)
-    const full = !paintedFrame || paintedFrame.columns !== frame.columns || paintedFrame.rows !== frame.rows || !paintedPalette || palette.some((color, i) => color !== paintedPalette[i]) || keyboardCursor || paintedCursor
-    if (full) { ctx.fillStyle = palette[0]; ctx.fillRect(0, 0, width, height) }
-    for (let y = 0; y < frame.rows; y++) for (let x = 0; x < frame.columns; x++) {
-      const i = y * frame.columns + x
-      if (!full && frame.chars[i] === paintedFrame.chars[i] && frame.colors[i] === paintedFrame.colors[i] && frame.coverage[i] === paintedFrame.coverage[i]) continue
-      const left = columnEdges[x], top = rowEdges[y], cellWidth = columnEdges[x + 1] - left, cellHeight = rowEdges[y + 1] - top
-      if (!full) { ctx.fillStyle = palette[0]; ctx.fillRect(left, top, cellWidth, cellHeight) }
-      if (frame.chars[i] === 32 && !frame.coverage[i]) continue
-      ctx.fillStyle = palette[frame.colors[i]]
-      if (frame.coverage[i]) {
-        ctx.globalAlpha = frame.coverage[i] / 255
-        const inset = frame.colors[i] >= 91 && frame.colors[i] <= 106 && frame.chars[i] === 32 ? 0 : .1
-        ctx.fillRect(left + inset, top + inset, cellWidth - inset * 2, cellHeight - inset * 2)
-        ctx.globalAlpha = 1
-      }
-      if (frame.coverage[i] > 128) ctx.fillStyle = frame.colors[i] >= 91 ? 'rgba(0,0,0,.16)' : frame.colors[i] >= 83 ? 'rgba(12,35,44,.3)' : frame.colors[i] >= 59 ? 'rgba(74,27,48,.3)' : frame.colors[i] >= 45 ? 'rgba(5,22,12,.4)' : 'rgba(55,47,35,.28)'
-      if (frame.chars[i] !== 32) {
-        ctx.globalAlpha = frame.coverage[i] <= 128 ? frame.coverage[i] / 128 : 1
-        ctx.fillText(String.fromCharCode(frame.chars[i]), (x + .5) * cellX, (y + .5) * cellY)
-        ctx.globalAlpha = 1
+    const rasterChanged = rasterBackground !== background || !rasterPalette || palette.some((color, i) => color !== rasterPalette[i])
+    if (rasterChanged) {
+      backgroundCanvas.width = canvas.width; backgroundCanvas.height = canvas.height
+      backgroundContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+      backgroundContext.font = ctx.font
+      backgroundContext.textAlign = 'center'; backgroundContext.textBaseline = 'middle'
+      backgroundContext.fillStyle = palette[0]; backgroundContext.fillRect(0, 0, width, height)
+      for (let y = 0; y < frame.rows; y++) for (let x = 0; x < frame.columns; x++) paintCell(backgroundContext, background, y * frame.columns + x, x, y)
+      rasterBackground = background; rasterPalette = palette
+    }
+    const full = !paintedFrame || rasterChanged || keyboardCursor || paintedCursor
+    if (full) ctx.drawImage(backgroundCanvas, 0, 0, width, height)
+    const changed = i => full || frame.chars[i] !== paintedFrame.chars[i] || frame.colors[i] !== paintedFrame.colors[i] || frame.coverage[i] !== paintedFrame.coverage[i]
+    for (let y = 0; y < frame.rows; y++) {
+      let x = 0
+      while (x < frame.columns) {
+        if (!changed(y * frame.columns + x)) { x++; continue }
+        const start = x++
+        while (x < frame.columns && changed(y * frame.columns + x)) x++
+        // Restore adjacent cells in one copy, before painting their translucent materials.
+        if (!full) {
+          const left = columnEdges[start], top = rowEdges[y], spanWidth = columnEdges[x] - left, cellHeight = rowEdges[y + 1] - top
+          ctx.drawImage(backgroundCanvas, left * pixelRatio, top * pixelRatio, spanWidth * pixelRatio, cellHeight * pixelRatio, left, top, spanWidth, cellHeight)
+        }
+        for (let column = start; column < x; column++) {
+          const i = y * frame.columns + column
+          if (frame.chars[i] === background.chars[i] && frame.colors[i] === background.colors[i] && frame.coverage[i] === background.coverage[i]) continue
+          paintCell(ctx, frame, i, column, y)
+        }
       }
     }
-    paintedFrame = frame; paintedPalette = palette; paintedCursor = Boolean(keyboardCursor)
+    paintedFrame = frame; paintedCursor = Boolean(keyboardCursor)
     if (keyboardCursor && pond.options.interactive) {
       ctx.fillStyle = palette[9]
       ctx.font = `500 ${Math.max(10, cellY)}px monospace`
@@ -99,6 +128,7 @@ export function createKoiPond(canvas, options = {}) {
     if (destroyed) return
     const rect = canvas.getBoundingClientRect(), dpr = Math.min(win.devicePixelRatio || 1, 2)
     width = rect.width; height = rect.height
+    pixelRatio = dpr
     if (!width || !height) { stop(); return }
     const fine = pond.options.detail === 'fine'
     const workload = Math.max(1, pond.options.fishCount / 14) * Math.max(1, pond.options.fishSize) ** 2
@@ -106,7 +136,7 @@ export function createKoiPond(canvas, options = {}) {
     cellX = Math.max(fine ? 2.5 : 4, Math.min(fine ? 3 : 6, width / (fine ? 360 : 180)), width / maximum)
     cellY = cellX * 1.6
     canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr)
-    paintedFrame = undefined; frameBudget = 1000 / 60; slowFrames = 0
+    paintedFrame = undefined; rasterBackground = undefined; frameBudget = 1000 / 60; slowFrames = 0
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.font = `500 ${cellY * .78}px ui-monospace, Consolas, monospace`
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
@@ -234,6 +264,7 @@ export function createKoiPond(canvas, options = {}) {
       canvas.style.touchAction = originalTouchAction
       canvas.style.cursor = originalCursor
       instances.delete(canvas)
+      backgroundCanvas.width = 0; backgroundCanvas.height = 0
     },
   }
   instances.set(canvas, controller)

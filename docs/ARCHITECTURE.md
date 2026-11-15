@@ -51,7 +51,9 @@ Pointer movement creates ripples, while a tap feeds after pointer-up confirms it
 
 Static water, submerged stones, rocks and vegetation are cached separately from fish. Caustic filaments animate over the pond bed, followed by all fish shadows and depth-sorted koi, then surface ripples, floating vegetation and food. Rendering does not change fish state. Water clarity and light settings affect only painting. Scene thumbnails use paused instances of the public controller, created when the scene picker opens and destroyed when it closes.
 
-Dirty canvas cells redraw only when their character, material or coverage changes. Water material edges align to device pixels, while fish keep their fine character texture. Higher counts and sizes lower the grid ceiling; consistently slow frames can reduce the refresh rate to 30 Hz while elapsed-time steering preserves swimming speed.
+The core frame exposes its cached submerged layer as `background`. The browser keeps a separate raster of that layer and restores changed cells from it before compositing translucent objects, light and ripples. This preserves the water behind each object instead of clearing it to a flat color. Palette, geometry and viewport changes regenerate the raster; destroying the controller releases its backing canvas.
+
+Dirty canvas cells redraw only when their character, material or coverage changes. Unchanged frames perform no canvas writes. Water material edges align to device pixels, while fish keep their fine character texture. Higher counts and sizes lower the grid ceiling; consistently slow frames can reduce the refresh rate to 30 Hz while elapsed-time steering preserves swimming speed.
 
 ## Extending it
 

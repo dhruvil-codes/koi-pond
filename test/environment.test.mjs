@@ -121,12 +121,22 @@ for (const environment of ['moonlight', 'autumn', 'sakura', 'daylight']) {
   assert(writes.length > 20, 'Particle density one adds preset-specific particles')
 }
 const cachePond = barePond(), original = renderPond(cachePond)
+assert.equal(renderPond(cachePond).background, original.background, 'Repeated frames share one immutable submerged layer')
+for (let y = 30; y < 65; y++) for (let x = 75; x < 170; x++) {
+  const i = y * 280 + x, back = original.background
+  assert.equal(back.chars[i], 32, 'The open swimming area stays free of static texture glyphs')
+  assert(Math.abs(back.coverage[i] - back.coverage[i - 1]) <= 2, 'Open water shading has no abrupt horizontal bands')
+  assert(Math.abs(back.coverage[i] - back.coverage[i - 280]) <= 2, 'Open water shading has no abrupt vertical bands')
+}
+original.coverage.fill(0)
+assert(renderPond(cachePond).background.coverage.some(value => value > 0), 'Frame composition cannot overwrite the cached water')
+const preserved = renderPond(cachePond)
 configurePond(cachePond, { seed: 183 }); cachePond.fish = []
-assert.notDeepEqual(renderPond(cachePond).colors, original.colors, 'Seed changes invalidate scenery geometry')
+assert.notDeepEqual(renderPond(cachePond).colors, preserved.colors, 'Seed changes invalidate scenery geometry')
 configurePond(cachePond, { seed: 2026 }); cachePond.fish = []
-assert.deepEqual(renderPond(cachePond), original, 'Returning to a seed reproduces its art')
+assert.deepEqual(renderPond(cachePond), preserved, 'Returning to a seed reproduces its art')
 configurePond(cachePond, { detail: 'balanced' })
-assert.notDeepEqual(renderPond(cachePond).chars, original.chars, 'Detail changes canopy density and fine caustics')
+assert.notDeepEqual(renderPond(cachePond).chars, preserved.chars, 'Detail changes canopy density and fine caustics')
 resizePond(cachePond, 156, 110)
 assert.equal(renderPond(cachePond).chars.length, 156 * 110, 'Resize invalidates cached arrays')
 console.log('Environment art passed: five structural scenes, sunny water/glints, palette invariants, options, densities, seed/cache invalidation and purity.')

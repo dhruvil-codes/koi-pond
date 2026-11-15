@@ -215,7 +215,7 @@ export function fishPaint(pond, frame, put) {
   for (let i = 0; i < shadow.length; i++) if (shadow[i]) {
     const background = frame.colors?.[i] || 98
     if (background < 91 || background > 106) continue
-    put(i % cols, Math.floor(i / cols), '.', Math.max(91, background - shadow[i]), frame.coverage?.[i] || 170)
+    put(i % cols, Math.floor(i / cols), ' ', 0, shadow[i] * 24)
   }
   for (const fish of pond.fish) fishDrawWake(pond, fish, frame, put)
   for (const fish of pond.fish.slice().sort((a, b) => b.depth - a.depth)) {

@@ -40,6 +40,6 @@ test('random configurations are valid and reproducible, and every integration ou
     assert(generateSnippet(config, 'next').startsWith("'use client'"))
     assert(generateSnippet(config, 'react').includes('return () => pond.destroy()'))
   }
-  assert(INSTALL_COMMAND.includes('#v0.4.0'))
+  assert(INSTALL_COMMAND.includes('#v0.4.1'))
   assert(INSTALL_COMMAND.includes('git+https://github.com/dhruvil-codes/koi-pond.git'))
 })

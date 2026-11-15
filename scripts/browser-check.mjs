@@ -161,7 +161,7 @@ try {
 
   console.log('Checking exact embeds, share links and imports...')
   await open('embed')
-  check((await lastCopy()).includes('#v0.4.0'), 'Dock command action copies the install command directly')
+  check((await lastCopy()).includes('#v0.4.1'), 'Dock command action copies the install command directly')
   for (const target of ['javascript', 'html', 'react', 'next']) {
     await page.locator('[data-target=' + target + ']').click()
     const exact = await page.evaluate(() => {
@@ -172,7 +172,7 @@ try {
     check(exact, target + ': code matches current settings exactly')
   }
   await page.locator('#copy-install').click()
-  check((await lastCopy()).includes('#v0.4.0'), 'Install command copies actual published Git tag')
+  check((await lastCopy()).includes('#v0.4.1'), 'Install command copies actual published Git tag')
   await page.locator('#copy-code').click()
   check((await lastCopy()).includes("'use client'"), 'Copy code uses selected framework')
   await page.locator('[data-target=json]').click(); await page.locator('#copy-json').click()
@@ -231,13 +231,18 @@ try {
     pond.setOptions({ fishCount: 1, fishSize: 1, speed: 3, paused: true, environment }); pond.reset()
     const context = canvas.getContext('2d'), x = Math.floor(canvas.width * .52), y = Math.floor(canvas.height * .24), radius = 24
     const before = context.getImageData(x - radius, y - radius, radius * 2, radius * 2).data
+    const originalPNG = canvas.toDataURL()
     pond.feed(.52, .24)
     const after = context.getImageData(x - radius, y - radius, radius * 2, radius * 2).data
     let visiblePixels = 0
     for (let i = 0; i < after.length; i += 4) if (Math.max(Math.abs(after[i] - before[i]), Math.abs(after[i + 1] - before[i + 1]), Math.abs(after[i + 2] - before[i + 2])) > 70) visiblePixels++
-    return visiblePixels
+    pond.reset()
+    const restored = canvas.toDataURL() === originalPNG
+    pond.feed(.52, .24)
+    return { visiblePixels, restored }
   }, environment)
-  check(visibleFood > 50, environment + ': food has a clearly visible footprint on the actual canvas')
+  check(visibleFood.visiblePixels > 50, environment + ': food has a clearly visible footprint on the actual canvas')
+  check(visibleFood.restored, environment + ': resetting restores the exact original background pixels')
   await page.screenshot({ path: fileURLToPath(new URL('visible-food-' + environment + '.png', proof)) })
   }
   await page.evaluate(() => document.querySelector('#pond').pond.play())

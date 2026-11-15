@@ -6,7 +6,7 @@ const envDewdrops = [[-.31, -.24, .068], [.23, .39, .045]]
 function envDrawLilyPads(pond, pads, put, shadows = false) {
   const { columns, rows, aspect } = pond
   for (const pad of pads) {
-    const r = pad.radius, cx = pad.x + (shadows ? r * .06 : 0), cy = pad.y + (shadows ? r * .11 / aspect : 0)
+    const r = pad.radius * (shadows ? 1.08 : 1), cx = pad.x + (shadows ? r * .06 : 0), cy = pad.y + (shadows ? r * .11 / aspect : 0)
     for (let y = Math.max(0, Math.floor(cy - r / aspect - 1)); y <= Math.min(rows - 1, Math.ceil(cy + r / aspect + 1)); y++) {
       for (let x = Math.max(0, Math.floor(cx - r - 1)); x <= Math.min(columns - 1, Math.ceil(cx + r + 1)); x++) {
         const dx = (x - cx) / r, dy = (y - cy) * aspect / r
@@ -16,15 +16,15 @@ function envDrawLilyPads(pond, pads, put, shadows = false) {
         // The open V reaches the leaf's centre, with a slightly rolled inner lip.
         const notch = u > -.09 && Math.abs(v) < (u + .09) * .27
         if (radius > edge || notch) continue
-        if (shadows) { put(x, y, '.', 2, 150); continue }
+        if (shadows) { put(x, y, ' ', 0, Math.round(100 * clamp((edge - radius) / .18, 0, 1))); continue }
         const rim = radius > edge - .07
         const veinAngle = Math.atan2(v, u + .13), veinRadius = Math.hypot(u + .13, v)
         const vein = radius > .14 ? clamp(1 - Math.abs(Math.sin(veinAngle * 7)) * veinRadius / .075, 0, 1) : 0
         const mainVein = vein > .32
         const branchVein = radius > .4 && Math.abs(Math.sin(veinAngle * 14 + radius * 13)) < .1
-        const growth = Math.sin((radius + .016 * Math.sin(angle * 9)) * 48 + pad.phase)
+        const growth = Math.sin((radius + .016 * Math.sin(angle * 9)) * 36 + pad.phase)
         const innerLip = u > -.09 && Math.abs(Math.abs(v) - (u + .09) * .27) < .045
-        let light = .46 - dx * .19 - dy * .23 + .05 * growth + .025 * Math.sin(u * 31 + v * 21 + pad.phase)
+        let light = .5 - dx * .19 - dy * .23 + .022 * growth + .012 * Math.sin(u * 31 + v * 21 + pad.phase)
         light += vein * .32
         if (branchVein) light += .06
         if (rim) light += dx + dy < -.35 ? .15 : -.23
@@ -211,6 +211,13 @@ function envPondBed(pond, put, seed, clarity) {
   }
 }
 
+function envSmoothNoise(x, y, seed) {
+  const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy
+  const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy)
+  const a = hash(ix + seed, iy), b = hash(ix + seed + 1, iy), c = hash(ix + seed, iy + 1), d = hash(ix + seed + 1, iy + 1)
+  return (a + (b - a) * u) * (1 - v) + (c + (d - c) * u) * v
+}
+
 function envBuild(pond, key) {
   const { columns, rows, aspect } = pond, options = pond.options || {}, scene = resolveEnvironment(options.environment || 'zen')
   const seed = (options.seed ?? 2026) >>> 0, fine = options.detail !== 'balanced', total = columns * rows
@@ -220,31 +227,35 @@ function envBuild(pond, key) {
     x = Math.round(x); y = Math.round(y)
     if (x >= 0 && x < columns && y >= 0 && y < rows) { const i = y * columns + x; layer.chars[i] = glyph.charCodeAt(0); layer.colors[i] = color; layer.coverage[i] = coverage }
   }
-  const backPut = paint(back), frontPut = paint(front), shimmer = []
-  const xWaves = Array.from({ length: columns }, (_, x) => [Math.sin(x * .045 + seed % 17), Math.sin(x * .113), Math.cos(x * .023)])
+  const backPut = paint(back), frontPut = paint(front), shimmer = [], causticMask = new Float32Array(total)
+  const shadeWater = (x, y, glyph, color, coverage) => {
+    x = Math.round(x); y = Math.round(y)
+    if (x < 0 || x >= columns || y < 0 || y >= rows) return
+    const index = y * columns + x
+    back.coverage[index] = Math.round(back.coverage[index] * (1 - coverage / 255))
+  }
   for (let y = 0; y < rows; y++) {
-    const bend = Math.sin(y * .07 + seed % 11) * 1.9, sy = Math.sin(y * .11), cy = Math.cos(y * .11)
     for (let x = 0; x < columns; x++) {
-      const waves = xWaves[x], coarse = waves[0] * cy + waves[2] * sy + Math.sin(y * .15 + waves[1] * 1.3)
-      const grain = hash(Math.floor(x / 3) + seed, Math.floor(y / 2))
-      const shallow = Math.max(0, 1 - Math.hypot((x / columns - .5) * 1.3, (y / rows - .48) * .9))
-      const light = clamp(.39 + coarse * .105 + grain * .045 - shallow * .08, .05, .95)
-      // Quiet solid material carries the water's depth; actual ink follows a few caustic contours.
-      backPut(x, y, ' ', 91 + Math.floor(light * 14), 90 + Math.round(light * 105))
-      const contour = Math.sin(x * .055 + y * .105 + bend + waves[0] * 1.8)
-      if (contour > .978 && grain > .34) backPut(x, y, hash(x, y) > .65 ? '-' : '.', 97 + Math.floor(light * 5), 130)
-      if (scene === 'daylight' && fine && x % 3 === 0 && y % 2 === 0 && contour > .83 && hash(x + seed, y + 53) > .72) {
-        backPut(x, y, '.', 166 + Math.floor(hash(x, y + seed) * 5), 82)
-      }
-      if (fine && x % 3 === 0 && y % 2 === 0 && grain > .65) shimmer.push([x, y, x * .027 + y * .09 + grain * 5])
+      const nx = x / columns, ny = y / rows, worldY = y * aspect / columns
+      const depth = envSmoothNoise(nx * 4.2, worldY * 4.2, seed % 65536)
+      const glow = Math.exp(-((nx - .67) ** 2 / .19 + (ny - .16) ** 2 / .48))
+      const basin = Math.exp(-((nx - .42) ** 2 / .15 + (ny - .57) ** 2 / .26))
+      const light = .32 + depth * .1 + glow * .28 - basin * .2
+      // A single hue with gradual coverage avoids palette bands and checkerboard grain.
+      backPut(x, y, ' ', 106, Math.round(35 + light * 210))
+      causticMask[y * columns + x] = clamp((envSmoothNoise(nx * 6 + 13, worldY * 6 + 7, seed % 8192) - .38) * 2, 0, 1) * (1 - basin * .65)
+      if (fine && x % 5 === 0 && y % 4 === 0 && hash(x + seed, y) > .85) shimmer.push([x, y, x * .027 + y * .09])
     }
   }
-  envPondBed(pond, backPut, seed, options.waterClarity ?? .8)
+  envPondBed(pond, (x, y, glyph, color) => {
+    const clarity = options.waterClarity ?? .8
+    shadeWater(x, y, ' ', 0, Math.max(.08, (101 - color) / 20) * clarity * 178)
+  }, seed, options.waterClarity ?? .8)
   // Submerged bank shadows sit beneath the rock geometry and remain out of the fish layer.
   for (const [cx, cy, rx, ry] of [[-.01, .44, .10, .10], [.96, 1.01, .21, .19]]) {
     for (let y = Math.max(0, Math.floor((cy - ry) * rows)); y < Math.min(rows, Math.ceil((cy + ry) * rows)); y++) for (let x = Math.max(0, Math.floor((cx - rx) * columns)); x < Math.min(columns, Math.ceil((cx + rx) * columns)); x++) {
       const d = Math.hypot((x / columns - cx) / rx, (y / rows - cy) / ry)
-      if (d < 1) backPut(x, y, ' ', 91, Math.round((1 - d) * 170))
+      if (d < 1) shadeWater(x, y, ' ', 0, 125 * (1 - d) ** 2)
     }
   }
   const rocks = [[-.014, .428, .069, .058], [.044, .357, .034, .033], [.008, .383, .038, .041], [.855, 1.018, .085, .079], [.932, .973, .075, .075], [.991, .90, .056, .083], [.895, .94, .041, .035]]
@@ -258,7 +269,7 @@ function envBuild(pond, key) {
     y: (y + (hash(i + seed, 812) - .5) * .012) * rows,
     radius: radius * columns, cos: Math.cos(rotation), sin: Math.sin(rotation), flatten, phase: i * 2.39,
   }))
-  envDrawLilyPads(pond, pads, backPut, true)
+  envDrawLilyPads(pond, pads, shadeWater, true)
   envDrawLilyPads(pond, pads, frontPut)
   const flowerCount = options.lotus === false ? 0 : options.lotusCount ?? 2
   // Static painter time avoids rebuilding thousands of petal cells for sub-cell movement.
@@ -270,7 +281,7 @@ function envBuild(pond, key) {
     const phase = x / columns * 64, bend = Math.sin(x / columns * 35 + seed % 13)
     return [Math.sin(phase), Math.cos(phase), Math.sin(bend), Math.cos(bend)]
   })
-  return { key, back, front, frontCells, shimmer, causticX }
+  return { key, back, front, frontCells, shimmer, causticX, causticMask }
 }
 
 function envGet(pond) {
@@ -308,57 +319,44 @@ function envCaustics(pond, cached, put, scene) {
       const field = phases[0] * cosWave + phases[1] * sinWave + sinY * phases[3] + cosY * phases[2]
       const edge = Math.max(0, 1 - Math.abs(field - .35) / .13)
       if (edge < .14) continue
-      const brightness = edge * edge * strength
-      put(x, y, brightness > .5 ? '-' : '.', 101 + Math.floor(brightness * 5), Math.round(65 + brightness * 115))
+      const brightness = edge * edge * strength * cached.causticMask[y * columns + x]
+      if (brightness < .018) continue
+      put(x, y, brightness > .4 ? '-' : '.', 106, Math.round(brightness * 160))
     }
   }
 }
 
 function envReflection(pond, put, scene) {
   if (scene === 'zen') return
-  if (scene === 'daylight') {
-    const { columns: cols, rows, time } = pond, seed = pond.options.seed ?? 2026
-    // A broadening trail of broken, sun-warmed dashes across the open water.
-    for (let y = 0; y < rows * .72; y++) {
-      const t = y / (rows * .72)
-      if (hash(y + seed, 718) < .19 + t * .18) continue
-      const center = cols * (.72 - t * .16) + Math.sin(y * .27 + time * .38) * cols * .009
-      const width = cols * (.012 + t * .065)
-      for (let dx = -width; dx <= width; dx++) {
-        const x = Math.round(center + dx)
-        const fleck = hash(x + Math.floor(time * .7), y + seed)
-        if (fleck < .69 + Math.abs(dx) / width * .17) continue
-        const light = clamp(.48 + (1 - Math.abs(dx) / width) * .32 + fleck * .2, 0, .99)
-        put(x, y, fleck > .94 ? '*' : '-', 163 + Math.floor(light * 11), Math.round(110 + light * 110))
-      }
-    }
-    return
-  }
-  const cols = pond.columns, rows = pond.rows, time = pond.time || 0, center = scene === 'autumn' ? .57 : .615
-  const reach = scene === 'moonlight' ? .49 : .58
+  const { columns: cols, rows, time } = pond, sunny = scene === 'daylight'
+  const center = scene === 'autumn' ? .57 : sunny ? .68 : .615, reach = sunny ? .76 : .6
   for (let y = 0; y < rows * reach; y++) {
-    const t = y / (rows * reach), drift = Math.sin(y * .51 + time * .48) * cols * (.006 + t * .008)
-    const width = cols * (.025 * (1 - t) + .006) * (.55 + hash(y, 284) * .65)
-    const x = cols * center + drift
-    if (hash(y, 718) < .22 + t * .3) continue
-    for (let dx = -width; dx < width; dx++) {
-      if (hash(Math.floor(dx * .5) + Math.floor(time * .6), y) < .23) continue
-      const brightness = clamp((1 - t) * .85 + hash(Math.floor(dx), y) * .2 - Math.abs(dx) / width * .3, 0, .99)
-      put(x + dx, y, Math.abs(dx) < width * .5 ? '-' : '.', 163 + Math.floor(brightness * 11), Math.round(70 + brightness * (scene === 'moonlight' ? 155 : 105)))
+    const t = y / (rows * reach), py = y / rows
+    const band = clamp(.3 + .5 * Math.sin(py * 184 - time * .42) + .25 * Math.sin(py * 421 + time * .17), 0, 1)
+    const drift = Math.sin(y / rows * 24 + time * .19) * cols * (.004 + t * .009)
+    const width = cols * (sunny ? .027 + t * .065 : .026 + t * .038)
+    const x = cols * (center - (sunny ? t * .08 : 0)) + drift
+    for (let dx = -width; dx <= width; dx++) {
+      const edge = Math.max(0, 1 - Math.abs(dx / width)) ** 1.2
+      const texture = .72 + .28 * Math.sin(dx * .72 + py * 138 + time * .12)
+      const brightness = band * edge * texture * (1 - t) ** 1.4
+      const coverage = Math.round(brightness * (scene === 'moonlight' ? 130 : sunny ? 100 : 85))
+      if (coverage < 3) continue
+      put(x + dx, y, coverage > 25 ? '-' : ' ', 163 + Math.floor((.3 + brightness * .69) * 11), coverage)
     }
-    if (y % 4 === 0 && t < .5) put(x - width * 2.1, y, '.', 165, 45)
   }
 }
 
 export function paintEnvironmentBack(pond, frame, put) {
   const cached = envGet(pond), time = pond.time || 0, options = pond.options || {}, scene = resolveEnvironment(options.environment || 'zen')
+  frame.background = cached.back
   frame.chars.set(cached.back.chars); frame.colors.set(cached.back.colors); frame.coverage.set(cached.back.coverage)
   envCaustics(pond, cached, put, scene)
   const intensity = options.rippleIntensity ?? 1
   if (intensity > 0) {
     for (const [x, y, phase] of cached.shimmer) {
       const light = Math.sin(time * .24 + phase)
-      if (light > .94) put(x + Math.sin(time * .08 + phase) * .6, y, '.', 100 + Math.floor((light - .94) * 60), 65)
+      if (light > .985) put(x, y, '.', 106, Math.round((light - .985) / .015 * 32 * intensity))
     }
   }
   envReflection(pond, put, scene)

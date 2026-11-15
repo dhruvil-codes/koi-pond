@@ -4,7 +4,7 @@ import { createKoiPond } from '../src/pond.js'
 
 function browser({ reduced = false } = {}) {
   let now = 100, next = 0
-  const frames = new Map(), observers = [], intersections = []
+  const frames = new Map(), observers = [], intersections = [], backgrounds = []
   const media = new EventTarget(); media.matches = reduced
   const doc = new EventTarget(); doc.hidden = false
   const win = new EventTarget()
@@ -18,7 +18,7 @@ function browser({ reduced = false } = {}) {
   doc.defaultView = win
   const canvas = () => {
     const node = new EventTarget(), attributes = new Map([['role', 'presentation']])
-    const ctx = { rectCount: 0, fillRect() { this.rectCount++ }, fillText() {}, setTransform(...args) { this.transform = args } }
+    const ctx = { rectCount: 0, imageCount: 0, fillRect() { this.rectCount++ }, drawImage(...args) { this.imageCount++; this.lastImage = args }, fillText() {}, setTransform(...args) { this.transform = args } }
     Object.assign(node, {
       ownerDocument: doc, style: { touchAction: 'auto' }, ctx, bounds: { left: 0, top: 0, width: 720, height: 480 },
       getContext: () => ctx, getBoundingClientRect() { return this.bounds },
@@ -27,13 +27,14 @@ function browser({ reduced = false } = {}) {
     })
     return node
   }
+  doc.createElement = () => { const node = canvas(); backgrounds.push(node); return node }
   const step = () => { now += 20; const pending = [...frames.values()]; frames.clear(); pending.forEach(fn => fn(now)) }
   const pointer = (node, type, props = {}) => {
     const event = new Event(type, { cancelable: true })
     Object.assign(event, { clientX: 250, clientY: 200, button: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true, ...props })
     node.dispatchEvent(event)
   }
-  return { win, doc, media, canvas, frames, observers, intersections, step, pointer }
+  return { win, doc, media, canvas, frames, observers, intersections, backgrounds, step, pointer }
 }
 
 test('independent instances validate updates atomically, preserve state and clean up completely', () => {
@@ -120,9 +121,10 @@ test('fullscreen hosts can opt into vertical touch ripples without changing scro
 
 test('full configurations, density budgets and stationary frames remain independent and predictable', () => {
   const b = browser(), canvas = b.canvas(), pond = createKoiPond(canvas)
-  const initialRects = canvas.ctx.rectCount, initialFont = parseFloat(canvas.ctx.font.split(' ')[1])
+  const initialRects = canvas.ctx.rectCount, initialImages = canvas.ctx.imageCount, initialFont = parseFloat(canvas.ctx.font.split(' ')[1])
   pond.pause()
   assert.equal(canvas.ctx.rectCount, initialRects, 'Pausing an unchanged frame does not repaint cached scenery')
+  assert.equal(canvas.ctx.imageCount, initialImages, 'An unchanged frame does not restore any cached cells')
   const snapshot = pond.getConfig()
   assert(Object.isFrozen(snapshot.varieties))
   pond.setConfig({ version: 1, options: { environment: 'autumn', seed: 42, fishCount: 30, fishSize: 1.8, paused: true } })
@@ -140,4 +142,24 @@ test('full configurations, density budgets and stationary frames remain independ
   calm.resetToDefaults()
   assert(calm.getConfig().paused, 'Default reset respects reduced motion')
   calm.destroy()
+})
+
+test('translucent effects restore the cached pond and geometry/palette changes refresh it', () => {
+  const b = browser(), canvas = b.canvas(), pond = createKoiPond(canvas, { paused: true })
+  const background = b.backgrounds[0], initial = background.ctx.rectCount
+  pond.ripple(.45, .4, .6)
+  assert.equal(background.ctx.rectCount, initial, 'Ripples reuse the submerged raster')
+  assert.equal(canvas.ctx.lastImage[0], background, 'Dirty cells restore the original pond before compositing')
+  assert.equal(canvas.ctx.lastImage.length, 9, 'Restoration copies the changed region rather than clearing to a flat color')
+  pond.setOptions({ waterColor: '#315e6a' })
+  assert(background.ctx.rectCount > initial, 'A changed palette regenerates the background')
+  const recolored = background.ctx.rectCount
+  pond.setOptions({ lilyDensity: .2 })
+  assert(background.ctx.rectCount > recolored, 'New vegetation invalidates cached submerged shadows')
+  canvas.bounds.width = 500
+  b.observers[0].fn()
+  assert.equal(background.width, canvas.width)
+  assert.equal(background.height, canvas.height)
+  pond.destroy()
+  assert.equal(background.width + background.height, 0, 'Destroy releases the backing raster')
 })

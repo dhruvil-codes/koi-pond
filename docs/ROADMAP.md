@@ -9,6 +9,8 @@ The current release includes environment separation, a configurable playground a
 - Procedural pond-bed stones and plants, animated caustics, water clarity and light controls.
 - Engine-rendered scene previews and a quiet view with keyboard recovery.
 
+The 0.4.1 visual refinement smooths the water field, limits caustics to irregular patches, softens plant/bank shadows and replaces scattered glare with connected reflection bands. A cached background raster provides correct translucent compositing and restoration during movement.
+
 ## v0.2 — implementation scope
 
 - Five procedural environments: Zen Garden, Moonlight, Autumn, Sakura Spring and sunny Daylight.
@@ -19,7 +21,7 @@ The current release includes environment separation, a configurable playground a
 - Plain HTML, React/Next.js lifecycle and decorative portfolio background examples.
 - Classic and ESM distribution paths with no runtime dependencies; standalone HTML remains usable offline.
 
-The npm registry package is not published. Install the versioned GitHub source from the `v0.4.0` tag. The public playground is hosted at https://koi-pond.bydhruvil.in/.
+The npm registry package is not published. Install the versioned GitHub source from the `v0.4.1` tag. The public playground is hosted at https://koi-pond.bydhruvil.in/.
 
 ## Future work
 
